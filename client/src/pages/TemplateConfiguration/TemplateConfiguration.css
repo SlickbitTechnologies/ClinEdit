@@ -1,0 +1,96 @@
+/* Page Container */
+.csr-template-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4efe9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+/* Centered CSR Container */
+.csr-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Glassmorphism Card */
+.csr-template-card {
+  width: 100%;
+  max-width: 600px;
+  border-radius: 20px !important;
+  padding: 32px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.85) !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+.csr-template-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Icon */
+.csr-icon {
+  width: 80px !important;
+  height: 80px !important;
+  font-size: 36px !important;
+  background: linear-gradient(135deg, #16a085, #1abc9c) !important;
+  margin: 0 auto 24px auto !important;
+  color: white !important;
+  box-shadow: 0 4px 15px rgba(22, 160, 133, 0.5) !important;
+}
+
+/* Titles */
+.csr-title {
+  text-align: center !important;
+  font-weight: 700 !important;
+  color: #2c3e50 !important;
+  margin-bottom: 12px !important;
+}
+
+.csr-description {
+  text-align: center !important;
+  color: #555 !important;
+  margin-bottom: 32px !important;
+  line-height: 1.6 !important;
+  font-size: 0.95rem !important;
+}
+
+/* Form Section */
+.csr-form {
+  margin-top: 16px;
+}
+
+.csr-label {
+  color: #2c3e50 !important;
+  font-weight: 600 !important;
+  margin-bottom: 8px !important;
+  display: block;
+}
+
+.csr-select .MuiOutlinedInput-root {
+  border-radius: 12px !important;
+  background: white !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Action Button */
+.csr-button {
+  background: linear-gradient(90deg, #16a085, #1abc9c) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  padding: 14px 28px !important;
+  margin-top: 24px !important;
+  font-size: 1rem !important;
+  transition: background 0.3s ease, transform 0.2s ease !important;
+}
+
+.csr-button:hover {
+  background: linear-gradient(90deg, #149174, #16a085) !important;
+  transform: scale(1.02);
+}
