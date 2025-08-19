@@ -20,6 +20,7 @@
     "@tiptap/extension-text-align": "^3.2.0",
     "@tiptap/react": "^3.2.0",
     "@tiptap/starter-kit": "^3.2.0",
+    "axios": "^1.11.0",
     "firebase": "^12.1.0",
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.539.0",

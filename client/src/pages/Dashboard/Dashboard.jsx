@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Container,
   Typography,
+  Grid,
   Card,
   CardContent,
   CardActions,
@@ -32,6 +33,7 @@ import {
   Description,
   Add,
   Search,
+  FilterList,
   GridView,
   ViewList,
   Close,
@@ -39,7 +41,7 @@ import {
   Person,
 } from "@mui/icons-material";
 import "./DashboardPage.css";
-
+import { createCSRDocument } from "../services/services";
 export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -141,11 +143,19 @@ const documents = [
     }));
   };
 
-  const handleSubmit = () => {
+const handleSubmit = async () => {
+  try {
     console.log("Creating document with data:", formData);
-    // Here you would typically send the data to your backend
-    handleCloseModal();
-  };
+
+    const newDoc = await createCSRDocument(formData, handleCloseModal);
+
+    console.log("New document saved:", newDoc);
+    // Optionally update local state to show new doc immediately
+    // setDocuments((prev) => [...prev, newDoc]);
+  } catch (error) {
+    console.error("Failed to create document:", error);
+  }
+};
 
 
 
@@ -332,7 +342,7 @@ const documents = [
                   InputLabelProps={{ shrink: true }}
                 />
               </div>
-              <div className="form-item">
+              {/* <div className="form-item">
                 <FormControl fullWidth variant="outlined">
                   <InputLabel>Document Type</InputLabel>
                   <Select
@@ -350,7 +360,7 @@ const documents = [
                     <MenuItem value="Safety">Safety Report</MenuItem>
                   </Select>
                 </FormControl>
-              </div>
+              </div> */}
               <div className="form-item">
                 <TextField
                   fullWidth

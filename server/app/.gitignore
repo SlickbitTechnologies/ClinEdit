@@ -1,0 +1,31 @@
+# Virtual environment
+env/
+venv/
+
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Database
+db.sqlite3
+
+# Media and Static files (if collected locally)
+/media/
+/static_root/ # Or whatever your STATIC_ROOT is set to
+
+# Environment variables
+.env
+*.env
+
+# Firebase credentials
+firebase-credentials.json
+serviceAccountKey.json
+# IDE specific files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+Dockerfile
