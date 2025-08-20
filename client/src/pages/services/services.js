@@ -109,7 +109,7 @@ export const getDocumentById = async (documentId) => {
         Authorization: `Bearer ${idToken}`,
       },
     });
-
+    console.log("the data we recive from backend",response.data)
     return response.data;
   } catch (error) {
     console.error("Error fetching document:", error);

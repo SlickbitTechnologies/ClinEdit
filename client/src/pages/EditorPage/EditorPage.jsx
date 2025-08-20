@@ -49,90 +49,61 @@ import Highlight from "@tiptap/extension-highlight";
 import { getDocumentById } from "../services/services";
 import "./EditorPage.css";
 
-const sectionsData = [
+const initialFallbackSections = [
   {
     title: "Protocol Title & Identifiers",
     description: "Study title, protocol number, version",
-    subsections: [""
-    ],
+    subsections: ["Title", "Identifiers"],
   },
   {
     title: "Background & Rationale",
     description: "Scientific background and study rationale",
-
     subsections: ["Scientific background", "Study rationale"],
   },
-  {
-    title: "Objectives & Endpoints",
-    description: "Primary and secondary objectives",
-    status: "Needs Review",
-    subsections: ["Primary objectives", "Secondary objectives"],
-  },
-  {
-    title: "Study Design",
-    description: "Study design and methodology",
-    status: "Missing",
-    subsections: ["Study type", "Study design", "Methodology"],
-  },
-  {
-    title: "Study Population",
-    description: "Inclusion and exclusion criteria",
-
-    subsections: [
-      "Inclusion criteria",
-      "Exclusion criteria",
-      "Target population",
-    ],
-  },
-  {
-    title: "Interventions",
-    description: "Study interventions and procedures",
-
-    subsections: ["Study interventions", "Procedures", "Dosing regimen"],
-  },
-  {
-    title: "Outcomes & Assessments",
-    description: "Primary and secondary outcome measures",
-
-    subsections: [
-      "Primary outcomes",
-      "Secondary outcomes",
-      "Safety assessments",
-    ],
-  },
-  {
-    title: "Statistical Analysis",
-    description: "Statistical analysis plan",
-    status: "Missing",
-    subsections: ["Sample size", "Statistical methods", "Analysis populations"],
-  },
+  // ... you can keep more fallback sections if you'd like
 ];
 export default function EditorPage() {
   const hasFetched = useRef(false);
-  
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [openPanels, setOpenPanels] = useState({});
-  const [collapsed, setCollapsed] = useState(false); // toggle state
-  const [loading, setLoading] = useState(true); // optional loader
-  const [doc,setDoc]=useState([])
+  const [collapsed, setCollapsed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [doc, setDoc] = useState([]);
   const { id } = useParams();
-
-  console.log("recived id in editor page ",id)
-
+  const [sections, setSections] = useState(initialFallbackSections);
+  // State to store JSON content for each section by id
+  const [sectionsContent, setSectionsContent] = useState({});
 
   const togglePanel = (i) => {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
   };
 
   const generateSectionContent = (sectionIndex) => {
-    const section = sectionsData[sectionIndex];
-    return section.subsections
+    const section = sections[sectionIndex] || { subsections: [] };
+    const subs =
+      Array.isArray(section.subsections) && section.subsections.length > 0
+        ? section.subsections
+        : // fallback: use section title as a single subsection
+          [section.title || "Untitled section"];
+
+    return subs
       .map(
         (sub, idx) =>
-          `<h3 id="sec-${sectionIndex}-sub-${idx}">${sub}</h3><p>Enter content for ${sub}...</p>`
+          `<h3 id="sec-${sectionIndex}-sub-${idx}">${escapeHtml(
+            String(sub)
+          )}</h3><p>Enter content for ${escapeHtml(String(sub))}...</p>`
       )
       .join("");
   };
+
+  function escapeHtml(unsafe) {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
   const editor = useEditor({
     extensions: [
@@ -143,35 +114,106 @@ export default function EditorPage() {
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
     content: generateSectionContent(0),
-  });
-  const fetchDoc=async ()=>{
-    try {
-      const doc = await getDocumentById(id);
-      console.log(doc)
-      setDoc(doc);
-    } catch (error) {
-      console.error("Error loading documents:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(() => {
-      if (!hasFetched.current) {
-        hasFetched.current = true;
-        fetchDoc();
+    onUpdate: ({ editor }) => {
+      const currentSection = sections[selectedSectionIndex];
+      if (currentSection && currentSection.id) {
+        setSectionsContent((prev) => ({
+          ...prev,
+          [currentSection.id]: editor.getJSON(),
+        }));
       }
-    }, [fetchDoc]);
+    },
+  });
+  useEffect(() => {
+    if (!id) return;
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    const fetchDoc = async () => {
+      setLoading(true);
+      try {
+        const response = await getDocumentById(id);
+        // store original response
+        setDoc(response);
+
+        // Normalize sections coming from backend:
+        // Expecting response.sections = [{ id, title, description, subsections: [strings]|[] }, ...]
+        if (
+          response &&
+          Array.isArray(response.sections) &&
+          response.sections.length
+        ) {
+          const normalized = response.sections.map((s) => {
+            let subsections = [];
+            if (Array.isArray(s.subsections) && s.subsections.length) {
+              subsections = s.subsections.map((ss) =>
+                typeof ss === "string" ? ss : ss.title || ss.name || String(ss)
+              );
+            } else {
+              subsections = [s.title || "Untitled"];
+            }
+            return {
+              ...s,
+              title: s.title || "Untitled",
+              description: s.description || "",
+              subsections,
+            };
+          });
+          setSections(normalized);
+          setSelectedSectionIndex(0);
+          // Initialize sectionsContent from response.sections
+          const initialContents = {};
+          response.sections.forEach((sec) => {
+            try {
+              initialContents[sec.id] = sec.description
+                ? JSON.parse(sec.description)
+                : { type: "doc", content: [] };
+            } catch {
+              initialContents[sec.id] = { type: "doc", content: [] };
+            }
+          });
+          setSectionsContent(initialContents);
+        }
+        // else {
+        //   setSections(initialFallbackSections);
+        // }
+      } catch (error) {
+        console.error("Error loading document:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoc();
+  }, [id]);
 
   useEffect(() => {
-    if (editor) {
-      editor.commands.setContent(generateSectionContent(selectedSectionIndex));
+    if (!editor) return;
+    const currentSection = sections[selectedSectionIndex];
+    if (currentSection && currentSection.id) {
+      const json = sectionsContent[currentSection.id] || {
+        type: "doc",
+        content: [],
+      };
+      editor.commands.setContent(json);
+      editor.chain().focus().run();
     }
-  }, [selectedSectionIndex, editor]);
+    // eslint-disable-next-line
+  }, [selectedSectionIndex, sections, editor, sectionsContent]);
 
   const saveDraft = () => {
+    // Build updated sections with description as stringified JSON
+    const updatedSections = sections.map((sec) => ({
+      ...sec,
+      description: JSON.stringify(
+        sectionsContent[sec.id] || { type: "doc", content: [] }
+      ),
+    }));
+    const updatedDoc = { ...doc, sections: updatedSections };
+    // TODO: call API to save updatedDoc
+    console.log("Saving draft:", updatedDoc);
     alert("Draft saved!");
   };
-
   const exportContent = () => {
     if (!editor) return;
     const html = editor.getHTML();
@@ -181,19 +223,13 @@ export default function EditorPage() {
     element.download = "protocol.html";
     document.body.appendChild(element);
     element.click();
+    element.remove();
   };
-
-  const goBack = () => {
-    window.history.back();
-  };
-
-  const completedSections = sectionsData.filter(
-    (s) => s.status === "Complete"
-  ).length;
-  const totalSections = sectionsData.length;
-  const completionPercentage = Math.round(
-    (completedSections / totalSections) * 100
-  );
+  const headerTitle =
+    doc?.meta_data?.metadata?.studyTitle ||
+    (doc && doc.id
+      ? `Document ${doc.id}`
+      : "Phase III Oncology Study Protocol");
 
   return (
     <Box
@@ -216,13 +252,17 @@ export default function EditorPage() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700, color: "#2c3e50" }}>
-              Phase III Oncology Study Protocol
+              {headerTitle}
             </Typography>
+            {doc?.created_at && (
+              <Typography variant="caption" color="text.secondary">
+                Created: {new Date(doc.created_at).toLocaleString()}
+              </Typography>
+            )}
           </Box>
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-  
           <Button
             className="draft-trial-btn"
             variant="outlined"
@@ -282,7 +322,7 @@ export default function EditorPage() {
                 Protocol Sections
               </Typography>
 
-              {sectionsData.map((section, i) => (
+              {sections.map((section, i) => (
                 <Accordion
                   key={section.title}
                   expanded={!!openPanels[i]}
@@ -412,9 +452,8 @@ export default function EditorPage() {
                   variant="h5"
                   sx={{ fontWeight: 700, color: "#2c3e50" }}
                 >
-                  {sectionsData[selectedSectionIndex].title}
+                  {sections[selectedSectionIndex].title}
                 </Typography>
-                
               </Box>
               <Box sx={{ display: "flex", gap: 1.5 }}>
                 <Button
