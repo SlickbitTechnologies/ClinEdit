@@ -65,13 +65,14 @@ const initialFallbackSections = [
 export default function EditorPage() {
   const hasFetched = useRef(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
+  const [selectedSubsectionId, setSelectedSubsectionId] = useState(null);
   const [openPanels, setOpenPanels] = useState({});
   const [collapsed, setCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [doc, setDoc] = useState([]);
   const { id } = useParams();
   const [sections, setSections] = useState(initialFallbackSections);
-  // State to store JSON content for each section by id
+  // State to store JSON content for each section or subsection by id
   const [sectionsContent, setSectionsContent] = useState({});
 
   const togglePanel = (i) => {
@@ -116,7 +117,12 @@ export default function EditorPage() {
     content: generateSectionContent(0),
     onUpdate: ({ editor }) => {
       const currentSection = sections[selectedSectionIndex];
-      if (currentSection && currentSection.id) {
+      if (selectedSubsectionId) {
+        setSectionsContent((prev) => ({
+          ...prev,
+          [selectedSubsectionId]: editor.getJSON(),
+        }));
+      } else if (currentSection && currentSection.id) {
         setSectionsContent((prev) => ({
           ...prev,
           [currentSection.id]: editor.getJSON(),
@@ -136,8 +142,8 @@ export default function EditorPage() {
         // store original response
         setDoc(response);
 
-        // Normalize sections coming from backend:
-        // Expecting response.sections = [{ id, title, description, subsections: [strings]|[] }, ...]
+        // Normalize sections and subsections from backend
+        // Each section: { id, title, description, subsections: [ {id, title, description} ] }
         if (
           response &&
           Array.isArray(response.sections) &&
@@ -146,11 +152,30 @@ export default function EditorPage() {
           const normalized = response.sections.map((s) => {
             let subsections = [];
             if (Array.isArray(s.subsections) && s.subsections.length) {
-              subsections = s.subsections.map((ss) =>
-                typeof ss === "string" ? ss : ss.title || ss.name || String(ss)
-              );
+              subsections = s.subsections.map((ss, idx) => {
+                // Normalize each subsection to have id, title, description
+                if (typeof ss === "string") {
+                  return {
+                    id: s.id + "-sub" + idx,
+                    title: ss,
+                    description: "",
+                  };
+                } else {
+                  return {
+                    id: ss.id || (s.id + "-sub" + idx),
+                    title: ss.title || ss.name || String(ss),
+                    description: ss.description || "",
+                  };
+                }
+              });
             } else {
-              subsections = [s.title || "Untitled"];
+              subsections = [
+                {
+                  id: s.id + "-sub0",
+                  title: s.title || "Untitled",
+                  description: "",
+                },
+              ];
             }
             return {
               ...s,
@@ -161,9 +186,10 @@ export default function EditorPage() {
           });
           setSections(normalized);
           setSelectedSectionIndex(0);
-          // Initialize sectionsContent from response.sections
+          // Initialize sectionsContent from response.sections and normalized subsections
           const initialContents = {};
-          response.sections.forEach((sec) => {
+          response.sections.forEach((sec, secIdx) => {
+            // Section content
             try {
               initialContents[sec.id] = sec.description
                 ? JSON.parse(sec.description)
@@ -171,12 +197,29 @@ export default function EditorPage() {
             } catch {
               initialContents[sec.id] = { type: "doc", content: [] };
             }
+            // Subsections
+            if (Array.isArray(sec.subsections)) {
+              sec.subsections.forEach((ss, subIdx) => {
+                let subId, desc;
+                if (typeof ss === "string") {
+                  subId = sec.id + "-sub" + subIdx;
+                  desc = "";
+                } else {
+                  subId = ss.id || (sec.id + "-sub" + subIdx);
+                  desc = ss.description || "";
+                }
+                try {
+                  initialContents[subId] = desc
+                    ? JSON.parse(desc)
+                    : { type: "doc", content: [] };
+                } catch {
+                  initialContents[subId] = { type: "doc", content: [] };
+                }
+              });
+            }
           });
           setSectionsContent(initialContents);
         }
-        // else {
-        //   setSections(initialFallbackSections);
-        // }
       } catch (error) {
         console.error("Error loading document:", error);
       } finally {
@@ -190,8 +233,14 @@ export default function EditorPage() {
   useEffect(() => {
     if (!editor) return;
     const currentSection = sections[selectedSectionIndex];
-    if (currentSection && currentSection.id) {
-      const json = sectionsContent[currentSection.id] || {
+    let targetId = null;
+    if (selectedSubsectionId) {
+      targetId = selectedSubsectionId;
+    } else if (currentSection && currentSection.id) {
+      targetId = currentSection.id;
+    }
+    if (targetId) {
+      const json = sectionsContent[targetId] || {
         type: "doc",
         content: [],
       };
@@ -199,16 +248,29 @@ export default function EditorPage() {
       editor.chain().focus().run();
     }
     // eslint-disable-next-line
-  }, [selectedSectionIndex, sections, editor, sectionsContent]);
+  }, [selectedSectionIndex, selectedSubsectionId, sections, editor, sectionsContent]);
 
   const saveDraft = () => {
     // Build updated sections with description as stringified JSON
-    const updatedSections = sections.map((sec) => ({
-      ...sec,
-      description: JSON.stringify(
-        sectionsContent[sec.id] || { type: "doc", content: [] }
-      ),
-    }));
+    const updatedSections = sections.map((sec) => {
+      // For each subsection, update its description from sectionsContent[sub.id]
+      const updatedSubsections = (sec.subsections || []).map((ss) => {
+        // ss is normalized: {id, title, description}
+        return {
+          ...ss,
+          description: JSON.stringify(
+            sectionsContent[ss.id] || { type: "doc", content: [] }
+          ),
+        };
+      });
+      return {
+        ...sec,
+        description: JSON.stringify(
+          sectionsContent[sec.id] || { type: "doc", content: [] }
+        ),
+        subsections: updatedSubsections,
+      };
+    });
     const updatedDoc = { ...doc, sections: updatedSections };
     // TODO: call API to save updatedDoc
     console.log("Saving draft:", updatedDoc);
@@ -375,11 +437,12 @@ export default function EditorPage() {
                     <List dense sx={{ py: 0 }}>
                       {section.subsections.map((sub, idx) => (
                         <ListItem
-                          key={idx}
+                          key={sub.id || idx}
                           button
                           onClick={() => {
                             if (!openPanels[i]) togglePanel(i);
                             setSelectedSectionIndex(i);
+                            setSelectedSubsectionId(sub.id);
                             setTimeout(() => {
                               const el = document.getElementById(
                                 `sec-${i}-sub-${idx}`
@@ -398,7 +461,7 @@ export default function EditorPage() {
                           }}
                         >
                           <ListItemText
-                            primary={sub}
+                            primary={sub.title || sub}
                             primaryTypographyProps={{
                               fontSize: "0.85rem",
                               fontWeight: 500,
