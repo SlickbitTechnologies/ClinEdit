@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
   Container,
   Typography,
@@ -41,8 +43,15 @@ import {
   Person,
 } from "@mui/icons-material";
 import "./DashboardPage.css";
-import { createCSRDocument } from "../services/services";
+import { createCSRDocument,getDocuments } from "../services/services";
 export default function DashboardPage() {
+    const navigate = useNavigate();
+
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true); // optional loader
+  const hasFetched = useRef(false);
+
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState("grid");
@@ -62,51 +71,20 @@ export default function DashboardPage() {
     sponsorCode: "",
   });
 
-const documents = [
-  {
-    id: 1,
-    title: "Clinical Study Report - Phase 1",
-    type: "Clinical Study Report",
-    date: "2025-08-05",
-    author: "Dr. Smith",
-    status: "Draft",
-  },
-  {
-    id: 2,
-    title: "Clinical Study Report - Phase 2",
-    type: "Clinical Study Report",
-    date: "2025-08-12",
-    author: "Dr. Johnson",
-    status: "Under Review",
-  },
-  {
-    id: 3,
-    title: "Clinical Study Report - Phase 3",
-    type: "Clinical Study Report",
-    date: "2025-08-18",
-    author: "Dr. Williams",
-    status: "Approved",
-  },
-  {
-    id: 4,
-    title: "Clinical Study Report - Extension Study",
-    type: "Clinical Study Report",
-    date: "2025-08-20",
-    author: "Dr. Brown",
-    status: "Final",
-  },
-];
+const filteredDocuments = documents.filter((doc) => {
+  const matchesSearch =
+    doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    doc.meta_data?.author?.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.author.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      filterType === "all" ||
-      doc.type.toLowerCase().includes(filterType.toLowerCase());
-    return matchesSearch && matchesFilter;
-  });
+  const matchesFilter =
+    filterType === "all" ||
+    doc.meta_data?.documentType
+      ?.toLowerCase()
+      .includes(filterType.toLowerCase());
+
+  return matchesSearch && matchesFilter;
+});
+
 
   const handleViewModeChange = (event, newViewMode) => {
     if (newViewMode !== null) {
@@ -143,20 +121,40 @@ const documents = [
     }));
   };
 
-const handleSubmit = async () => {
-  try {
-    console.log("Creating document with data:", formData);
+  const handleSubmit = async () => {
+    try {
+      console.log("Creating document with data:", formData);
 
-    const newDoc = await createCSRDocument(formData, handleCloseModal);
+      const newDoc = await createCSRDocument(formData, handleCloseModal);
 
-    console.log("New document saved:", newDoc);
-    // Optionally update local state to show new doc immediately
-    // setDocuments((prev) => [...prev, newDoc]);
-  } catch (error) {
-    console.error("Failed to create document:", error);
-  }
-};
+      console.log("New document saved:", newDoc);
+      // Optionally update local state to show new doc immediately
+      // setDocuments((prev) => [...prev, newDoc]);
+    } catch (error) {
+      console.error("Failed to create document:", error);
+    }
+  };
+  const handleEdit = (id) => {
+      navigate(`/dashboard/editor/${id}`);
+    };
 
+  const fetchDocs = async () => {
+        try {
+          const docs = await getDocuments();
+          console.log(docs);
+          setDocuments(docs);
+        } catch (error) {
+          console.error("Error loading documents:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+  useEffect(() => {
+          if (!hasFetched.current) {
+            hasFetched.current = true;
+              fetchDocs();
+          }
+  }, [fetchDocs]);
 
 
   return (
@@ -218,7 +216,6 @@ const handleSubmit = async () => {
         {viewMode === "grid" ? (
           <div className="documents-grid">
             {/* Create New Document Card */}
-     
 
             {/* Existing Documents */}
             {filteredDocuments.map((doc) => (
@@ -231,19 +228,23 @@ const handleSubmit = async () => {
                       </Avatar>
                     </Box>
                     <Typography variant="h6" className="doc-title">
-                      {doc.title}
+                      {doc.meta_data?.metadata?.studyTitle}
                     </Typography>
                     <Typography variant="body2" className="doc-type">
-                      {doc.type}
+                      {doc.meta_data?.metadata?.documentType}
                     </Typography>
                     <Box className="doc-meta">
                       <Box className="meta-item">
                         <CalendarToday fontSize="small" />
-                        <Typography variant="caption">{doc.date}</Typography>
+                        <Typography variant="caption">
+                          {doc.meta_data?.metadata?.documentDate}
+                        </Typography>
                       </Box>
                       <Box className="meta-item">
                         <Person fontSize="small" />
-                        <Typography variant="caption">{doc.author}</Typography>
+                        <Typography variant="caption">
+                          {doc.meta_data?.metadata?.author}
+                        </Typography>
                       </Box>
                     </Box>
                   </CardContent>
@@ -251,7 +252,7 @@ const handleSubmit = async () => {
                     <Button size="small" color="primary">
                       View
                     </Button>
-                    <Button size="small" color="secondary">
+                    <Button size="small" color="secondary" onClick={() => handleEdit(doc.id)}>
                       Edit
                     </Button>
                   </CardActions>
@@ -290,7 +291,7 @@ const handleSubmit = async () => {
                       <Button size="small" color="primary">
                         View
                       </Button>
-                      <Button size="small" color="secondary">
+                      <Button size="small" color="secondary" onClick={() => handleEdit(doc.id)}>
                         Edit
                       </Button>
                     </Box>

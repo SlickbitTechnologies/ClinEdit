@@ -55,7 +55,7 @@ export const createCSRDocument = async (metadata, handleCloseModal) => {
 
     const response = await axios.post(
       `${API_BASE}/api/create-document`,
-      { metadata }, // 👈 send metadata in request body
+      { metadata }, 
       {
         headers: { Authorization: `Bearer ${idToken}` },
       }
@@ -67,6 +67,74 @@ export const createCSRDocument = async (metadata, handleCloseModal) => {
     return response.data.document;
   } catch (error) {
     console.error("Error creating document:", error);
+    throw error;
+  }
+};
+
+
+export const getDocuments = async () => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  if (!user) throw new Error("User not authenticated");
+
+  const idToken = await user.getIdToken();
+
+  try {
+    const response = await axios.get(`${API_BASE}/api/documents`, {
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+
+    return response.data.documents;
+  } catch (error) {
+    console.error("Error fetching documents:", error);
+    throw error;
+  }
+};
+
+
+export const getDocumentById = async (documentId) => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  if (!user) throw new Error("User not authenticated");
+
+  const idToken = await user.getIdToken();
+
+  try {
+    const response = await axios.get(`${API_BASE}/api/documents/${documentId}`, {
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching document:", error);
+    throw error;
+  }
+};
+
+export const deleteDocument = async (documentId) => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  if (!user) throw new Error("User not authenticated");
+
+  const idToken = await user.getIdToken();
+
+  try {
+    await axios.delete(`${API_BASE}/api/documents/${documentId}`, {
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting document:", error);
     throw error;
   }
 };

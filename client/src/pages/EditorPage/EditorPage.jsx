@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+
 import {
   Box,
   Button,
@@ -44,24 +46,20 @@ import Heading from "@tiptap/extension-heading";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
+import { getDocumentById } from "../services/services";
 import "./EditorPage.css";
 
 const sectionsData = [
   {
     title: "Protocol Title & Identifiers",
     description: "Study title, protocol number, version",
-    subsections: [
-      "Protocol Identifiers",
-      "Protocol Number",
-      "Version",
-      "Date",
-      "Sponsor",
+    subsections: [""
     ],
   },
   {
     title: "Background & Rationale",
     description: "Scientific background and study rationale",
-    status: "Complete",
+
     subsections: ["Scientific background", "Study rationale"],
   },
   {
@@ -79,7 +77,7 @@ const sectionsData = [
   {
     title: "Study Population",
     description: "Inclusion and exclusion criteria",
-    status: "Missing",
+
     subsections: [
       "Inclusion criteria",
       "Exclusion criteria",
@@ -89,13 +87,13 @@ const sectionsData = [
   {
     title: "Interventions",
     description: "Study interventions and procedures",
-    status: "Missing",
+
     subsections: ["Study interventions", "Procedures", "Dosing regimen"],
   },
   {
     title: "Outcomes & Assessments",
     description: "Primary and secondary outcome measures",
-    status: "Missing",
+
     subsections: [
       "Primary outcomes",
       "Secondary outcomes",
@@ -109,17 +107,18 @@ const sectionsData = [
     subsections: ["Sample size", "Statistical methods", "Analysis populations"],
   },
 ];
-
-const statusColors = {
-  Complete: "#27ae60",
-  "Needs Review": "#f39c12",
-  Missing: "#e74c3c",
-};
-
 export default function EditorPage() {
+  const hasFetched = useRef(false);
+  
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [openPanels, setOpenPanels] = useState({});
   const [collapsed, setCollapsed] = useState(false); // toggle state
+  const [loading, setLoading] = useState(true); // optional loader
+  const [doc,setDoc]=useState([])
+  const { id } = useParams();
+
+  console.log("recived id in editor page ",id)
+
 
   const togglePanel = (i) => {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
@@ -145,6 +144,23 @@ export default function EditorPage() {
     ],
     content: generateSectionContent(0),
   });
+  const fetchDoc=async ()=>{
+    try {
+      const doc = await getDocumentById(id);
+      console.log(doc)
+      setDoc(doc);
+    } catch (error) {
+      console.error("Error loading documents:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+      if (!hasFetched.current) {
+        hasFetched.current = true;
+        fetchDoc();
+      }
+    }, [fetchDoc]);
 
   useEffect(() => {
     if (editor) {

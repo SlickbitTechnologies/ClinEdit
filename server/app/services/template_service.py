@@ -7,8 +7,6 @@ class TemplateService:
     @staticmethod
     def save_template(uid: str, title: str, template_data: dict):
 
-
-        # Navigate to subcollection under user
         user_ref = db.collection("users").document(uid)
         doc_ref = user_ref.collection(TemplateService.COLLECTION).document()
 

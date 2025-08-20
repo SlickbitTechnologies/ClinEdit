@@ -23,7 +23,7 @@ export default function Routespage() {
               path="templateconfiguration"
               element={<TemplateConfiguration />}
             />
-            <Route path="editor" element={<EditorPage />} />
+            <Route path="editor/:id" element={<EditorPage />} />{" "}
           </Route>
         </Route>
       </Routes>
