@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-
+import html2pdf from "html2pdf.js";
 import {
   Box,
   Button,
@@ -46,8 +46,9 @@ import Heading from "@tiptap/extension-heading";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
-import { getDocumentById } from "../services/services";
+import { getDocumentById, updateDocument } from "../services/services";
 import "./EditorPage.css";
+import { Tag } from "lucide-react";
 
 const initialFallbackSections = [
   {
@@ -72,7 +73,6 @@ export default function EditorPage() {
   const [doc, setDoc] = useState([]);
   const { id } = useParams();
   const [sections, setSections] = useState(initialFallbackSections);
-  // State to store JSON content for each section or subsection by id
   const [sectionsContent, setSectionsContent] = useState({});
 
   const togglePanel = (i) => {
@@ -81,73 +81,83 @@ export default function EditorPage() {
 
 
   // Build the full document content from sections and sectionsContent
-  const buildFullDoc = (sections, sectionsContent) => {
-    return {
-      type: "doc",
-      content: sections.flatMap((section, secIdx) => {
-        const secId = section.id || `sec-${secIdx}`;
-        const secContent =
-          sectionsContent[secId]?.content && sectionsContent[secId].content.length > 0
-            ? sectionsContent[secId].content
-            : [
-                {
-                  type: "paragraph",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Enter content for ${section.title}...`,
-                    },
-                  ],
-                },
-              ];
-
-        const sectionNode = [
-          {
-            type: "heading",
-            attrs: { level: 2 },
-            content: [{ type: "text", text: section.title }],
-          },
-          ...secContent,
-        ];
-
-        const subsectionsNodes = (section.subsections || []).flatMap(
-          (sub, subIdx) => {
-            const subId = sub.id || `${secId}-sub-${subIdx}`;
-            const subContent =
-              sectionsContent[subId]?.content && sectionsContent[subId].content.length > 0
-                ? sectionsContent[subId].content
-                : [
-                    {
-                      type: "paragraph",
-                      content: [
-                        {
-                          type: "text",
-                          text: `Enter content for ${sub.title}...`,
-                        },
-                      ],
-                    },
-                  ];
-
-            return [
+const buildFullDoc = (sections, sectionsContent) => {
+  return {
+    type: "doc",
+    content: sections.flatMap((section, secIdx) => {
+      const secId = section.id || `sec-${secIdx}`;
+      const secContent =
+        sectionsContent[secId]?.content &&
+        sectionsContent[secId].content.length > 0
+          ? sectionsContent[secId].content.map((node) => ({
+              ...node,
+              attrs: { ...node.attrs, textAlign: "left" },
+            }))
+          : [
               {
-                type: "heading",
-                attrs: { level: 3 },
-                content: [{ type: "text", text: sub.title }],
+                type: "paragraph",
+                attrs: { textAlign: "left" },
+                content: [
+                  {
+                    type: "text",
+                    text: `Enter content for ${section.title}...`,
+                  },
+                ],
               },
-              ...subContent,
             ];
-          }
-        );
 
-        return [...sectionNode, ...subsectionsNodes];
-      }),
-    };
+      const sectionNode = [
+        {
+          type: "heading",
+          
+          attrs: { level: 4, textAlign: "left" },
+          content: [{ type: "text", text: section.title }],
+        },
+        ...secContent,
+      ];
+
+      const subsectionsNodes = (section.subsections || []).flatMap(
+        (sub, subIdx) => {
+          const subId = sub.id || `${secId}-sub-${subIdx}`;
+          const subContent =
+            sectionsContent[subId]?.content &&
+            sectionsContent[subId].content.length > 0
+              ? sectionsContent[subId].content.map((node) => ({
+                  ...node,
+                  attrs: { ...node.attrs, textAlign: "left" },
+                }))
+              : [
+                  {
+                    type: "paragraph",
+                    attrs: { textAlign: "left" },
+                    content: [
+                      {
+                        type: "text",
+                        text: `Enter content for ${sub.title}...`,
+                      },
+                    ],
+                  },
+                ];
+
+          return [
+            {
+              type: "heading",
+              attrs: { level: 5, textAlign: "left" },
+              content: [{ type: "text", text: sub.title }],
+            },
+            ...subContent,
+          ];
+        }
+      );
+
+      return [...sectionNode, ...subsectionsNodes];
+    }),
   };
-
+};
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Heading.configure({ levels: [1, 2, 3] }),
+      Heading.configure({ levels: [1, 2, 3,4,5,6] }),
       Link.configure({ openOnClick: false }),
       Highlight,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -214,13 +224,58 @@ export default function EditorPage() {
           const initialContents = {};
           response.sections.forEach((sec, secIdx) => {
             // Section content
-            try {
-              initialContents[sec.id] = sec.description
-                ? JSON.parse(sec.description)
-                : { type: "doc", content: [] };
-            } catch {
-              initialContents[sec.id] = { type: "doc", content: [] };
-            }
+try {
+  if (sec.description) {
+    // Special handling for TITLE PAGE metadata
+    if (
+      sec.title.toUpperCase() === "TITLE PAGE" &&
+      sec.description.includes("metadata:")
+    ) {
+      const metaString = sec.description.split("metadata:")[1].trim();
+      // Convert Python-style dict → JSON
+      const fixedJson = metaString.replace(/'/g, '"');
+      const metadata = JSON.parse(fixedJson);
+
+      // Build formatted metadata block
+      initialContents[sec.id] = {
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { level: 3, textAlign: "center" },
+            content: [{ type: "text", text: "Document Metadata" }],
+          },
+          ...Object.entries(metadata).map(([key, value]) => ({
+            type: "paragraph",
+            attrs: { textAlign: "center" },
+            content: [
+              { type: "text", marks: [{ type: "bold" }], text: `${key}: ` },
+              { type: "text", text: value || "—" },
+            ],
+          })),
+        ],
+      };
+    } else {
+      // Normal JSON case
+      const parsed = JSON.parse(sec.description);
+      initialContents[sec.id] = parsed;
+    }
+  } else {
+    initialContents[sec.id] = { type: "doc", content: [] };
+  }
+} catch {
+  // fallback plain text
+  initialContents[sec.id] = {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        attrs: { textAlign: "left" },
+        content: [{ type: "text", text: sec.description }],
+      },
+    ],
+  };
+}
             // Subsections
             if (Array.isArray(sec.subsections)) {
               sec.subsections.forEach((ss, subIdx) => {
@@ -233,11 +288,24 @@ export default function EditorPage() {
                   desc = ss.description || "";
                 }
                 try {
-                  initialContents[subId] = desc
-                    ? JSON.parse(desc)
-                    : { type: "doc", content: [] };
+                  if (desc) {
+                    const parsed = JSON.parse(desc);
+                    initialContents[subId] = parsed;
+                  } else {
+                    initialContents[subId] = { type: "doc", content: [] };
+                  }
                 } catch {
-                  initialContents[subId] = { type: "doc", content: [] };
+                  // fallback if description is plain text
+                  initialContents[subId] = {
+                    type: "doc",
+                    content: [
+                      {
+                        type: "paragraph",
+                        attrs: { textAlign: "left" },
+                        content: [{ type: "text", text: desc }],
+                      },
+                    ],
+                  };
                 }
               });
             }
@@ -262,65 +330,79 @@ export default function EditorPage() {
   }, [id]);
 
 
-  const saveDraft = () => {
-    if (!editor) return;
-    const json = editor.getJSON();
+const saveDraft = async () => {
+  if (!editor) return;
+  const json = editor.getJSON();
 
-    const updatedSections = sections.map((section, secIdx) => {
-      const secId = section.id || `sec-${secIdx}`;
-      const sectionNodes = [];
-      const subsectionsContent = {};
+  const updatedSections = sections.map((section, secIdx) => {
+    const secId = section.id || `sec-${secIdx}`;
+    const sectionNodes = [];
+    const subsectionsContent = {};
 
-      let currentTarget = sectionNodes;
-      let currentSubId = null;
+    let currentTarget = sectionNodes;
+    let currentSubId = null;
 
-      for (const node of json.content) {
-        if (node.type === "heading" && node.attrs?.level === 2) {
-          if (node.content?.[0]?.text === section.title) {
-            currentTarget = sectionNodes;
-            currentSubId = null;
-          }
-        } else if (node.type === "heading" && node.attrs?.level === 3) {
-          const subsection = section.subsections.find(
-            (s) => s.title === node.content?.[0]?.text
-          );
-          if (subsection) {
-            currentSubId = subsection.id;
-            subsectionsContent[currentSubId] = [];
-            currentTarget = subsectionsContent[currentSubId];
-          }
-        } else {
-          currentTarget.push(node);
+    for (const node of json.content) {
+      if (node.type === "heading" && node.attrs?.level === 4) {
+        if (node.content?.[0]?.text === section.title) {
+          currentTarget = sectionNodes;
+          currentSubId = null;
         }
+      } else if (node.type === "heading" && node.attrs?.level === 5) {
+        const subsection = section.subsections.find(
+          (s) => s.title === node.content?.[0]?.text
+        );
+        if (subsection) {
+          currentSubId = subsection.id;
+          subsectionsContent[currentSubId] = [];
+          currentTarget = subsectionsContent[currentSubId];
+        }
+      } else {
+        currentTarget.push(node);
       }
+    }
 
-      return {
-        ...section,
-        description: JSON.stringify({ type: "doc", content: sectionNodes }),
-        subsections: section.subsections.map((sub, idx) => ({
-          ...sub,
-          description: JSON.stringify({
-            type: "doc",
-            content: subsectionsContent[sub.id] || [],
-          }),
-        })),
-      };
-    });
+    return {
+      ...section,
+      description: JSON.stringify({ type: "doc", content: sectionNodes }),
+      subsections: section.subsections.map((sub, idx) => ({
+        ...sub,
+        description: JSON.stringify({
+          type: "doc",
+          content: subsectionsContent[sub.id] || [],
+        }),
+      })),
+    };
+  });
 
-    const updatedDoc = { ...doc, sections: updatedSections };
-    console.log("Saving draft:", updatedDoc);
-    alert("Draft saved!");
-  };
+  const updatedDoc = { ...doc, sections: updatedSections };
+
+  try {
+    await updateDocument(doc.id, updatedDoc); // 🔹 API call here
+    alert("Draft saved successfully!");
+  } catch (error) {
+    console.error("Error saving draft:", error);
+    alert("Failed to save draft. Please try again.");
+  }
+};
   const exportContent = () => {
     if (!editor) return;
-    const html = editor.getHTML();
-    const element = document.createElement("a");
-    const file = new Blob([html], { type: "text/html" });
-    element.href = URL.createObjectURL(file);
-    element.download = "protocol.html";
-    document.body.appendChild(element);
-    element.click();
-    element.remove();
+
+    // Create a temporary container with the editor's HTML
+    const element = document.createElement("div");
+    element.innerHTML = editor.getHTML();
+    element.style.padding = "20px"; // Optional: add padding for PDF
+
+    const options = {
+      margin: 10,
+      filename: `${headerTitle}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, logging: false },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    };
+
+    // Generate and download PDF
+    html2pdf().set(options).from(element).save();
   };
   const headerTitle =
     doc?.meta_data?.metadata?.studyTitle ||
@@ -395,6 +477,7 @@ export default function EditorPage() {
         <Box
           sx={{
             width: collapsed ? 0 : 250,
+            flexShrink: 0, 
             transition: "width 0.3s ease",
             borderRight: collapsed ? "none" : "1px solid #e0e4e7",
             overflowY: "auto",
@@ -479,7 +562,7 @@ export default function EditorPage() {
                             setSelectedSectionIndex(i);
                             setSelectedSubsectionId(sub.id);
                             setTimeout(() => {
-                              const headings = document.querySelectorAll(".ProseMirror h3, .ProseMirror h2");
+                              const headings = document.querySelectorAll(".ProseMirror h4, .ProseMirror h5");
                               headings.forEach((h) => {
                                 if (h.textContent === sub.title) {
                                   h.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -516,7 +599,7 @@ export default function EditorPage() {
           sx={{
             position: "absolute",
             top: "50%",
-            left: collapsed ? 0 : 300,
+            left: collapsed ? 0 : 290,
 
             transform: "translateY(-50%)",
             transition: "left 0.3s ease",

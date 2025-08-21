@@ -24,11 +24,6 @@ import slickbit from "../../assets/image/slickbit.png";
 
 const navItems = [
   { label: "Dashboard", icon: <PeopleIcon />, path: "documents" },
-  {
-    label: "Editor",
-    icon: <DescriptionIcon />,
-    path: "editor",
-  },
 ];
 
 const settingsItems = [

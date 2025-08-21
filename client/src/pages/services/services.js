@@ -126,15 +126,42 @@ export const deleteDocument = async (documentId) => {
   const idToken = await user.getIdToken();
 
   try {
-    await axios.delete(`${API_BASE}/api/documents/${documentId}`, {
-      headers: {
-        Authorization: `Bearer ${idToken}`,
-      },
-    });
-
-    return { success: true };
+    const response = await axios.delete(
+      `${API_BASE}/api/documents/${documentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      }
+    );
+    return response.data;
   } catch (error) {
     console.error("Error deleting document:", error);
+    throw error;
+  }
+};
+
+export const updateDocument = async (documentId, updatedDoc) => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  if (!user) throw new Error("User not authenticated");
+
+  const idToken = await user.getIdToken();
+
+  try {
+    const response = await axios.put(
+      `${API_BASE}/api/documents/${documentId}`,
+      updatedDoc,
+      {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      }
+    );
+    return response.data.document;
+  } catch (error) {
+    console.error("Error updating document:", error);
     throw error;
   }
 };

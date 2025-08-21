@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
+import { Link } from "react-router-dom";
 import {
   Container,
   Typography,
@@ -29,26 +29,32 @@ import {
   ListItemText,
   ListItemAvatar,
   Divider,
+  Tooltip,
 } from "@mui/material";
 import {
   Description,
   Add,
   Search,
-  FilterList,
   GridView,
   ViewList,
   Close,
   CalendarToday,
   Person,
+  DeleteOutline,
+  VisibilityOutlined,
+  EditOutlined,
 } from "@mui/icons-material";
 import "./DashboardPage.css";
-import { createCSRDocument,getDocuments } from "../services/services";
+import { createCSRDocument,getDocuments,deleteDocument } from "../services/services";
+
 export default function DashboardPage() {
     const navigate = useNavigate();
 
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true); // optional loader
   const hasFetched = useRef(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
 
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -154,7 +160,30 @@ const filteredDocuments = documents.filter((doc) => {
               fetchDocs();
           }
   }, [fetchDocs]);
+  const handleDeleteDocument = (document) => {
+    setDocumentToDelete(document);
+    setDeleteDialogOpen(true);
+  };
 
+const confirmDelete = async () => {
+  if (documentToDelete) {
+    try {
+      await deleteDocument(documentToDelete.id); // call backend
+      setDocuments(documents.filter((doc) => doc.id !== documentToDelete.id)); // update UI
+    } catch (error) {
+      console.error("Failed to delete document:", error);
+      // Optionally show a toast/snackbar for error
+    } finally {
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
+    }
+  }
+};
+
+  const cancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setDocumentToDelete(null);
+  };
 
   return (
     <div className="dashboard-wrapper">
@@ -248,12 +277,60 @@ const filteredDocuments = documents.filter((doc) => {
                     </Box>
                   </CardContent>
                   <CardActions className="doc-actions">
-                    <Button size="small" color="primary">
-                      View
-                    </Button>
-                    <Button size="small" color="secondary" onClick={() => handleEdit(doc.id)}>
-                      Edit
-                    </Button>
+                    <Tooltip title="View Document" placement="top">
+                      <IconButton
+                        size="small"
+                        className="view-button"
+                        sx={{
+                          color: "#16a085",
+                          transition: "all 0.3s ease",
+                          "&:hover": {
+                            color: "#2c3e50",
+                            transform: "scale(1.1)",
+                            backgroundColor: "rgba(22, 160, 133, 0.1)",
+                          },
+                        }}
+                      >
+                        <VisibilityOutlined fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit Document" placement="top">
+                      <IconButton
+                       
+                        size="small"
+                        onClick={() => handleEdit(doc.id)}
+                        className="edit-button"
+                        sx={{
+                          color: "#3498db",
+                          transition: "all 0.3s ease",
+                          "&:hover": {
+                            color: "#2980b9",
+                            transform: "scale(1.1)",
+                            backgroundColor: "rgba(52, 152, 219, 0.1)",
+                          },
+                        }}
+                      >
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Document" placement="top">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteDocument(doc)}
+                        className="delete-button"
+                        sx={{
+                          color: "#e74c3c",
+                          transition: "all 0.3s ease",
+                          "&:hover": {
+                            color: "#c0392b",
+                            transform: "scale(1.1)",
+                            backgroundColor: "rgba(231, 76, 60, 0.1)",
+                          },
+                        }}
+                      >
+                        <DeleteOutline fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </CardActions>
                 </Card>
               </div>
@@ -287,12 +364,60 @@ const filteredDocuments = documents.filter((doc) => {
                       }
                     />
                     <Box className="list-actions">
-                      <Button size="small" color="primary">
-                        View
-                      </Button>
-                      <Button size="small" color="secondary" onClick={() => handleEdit(doc.id)}>
-                        Edit
-                      </Button>
+                      <Tooltip title="View Document" placement="top">
+                        <IconButton
+                          size="small"
+                          className="view-button"
+                          sx={{
+                            color: "#16a085",
+                            transition: "all 0.3s ease",
+                            "&:hover": {
+                              color: "#2c3e50",
+                              transform: "scale(1.1)",
+                              backgroundColor: "rgba(22, 160, 133, 0.1)",
+                            },
+                          }}
+                        >
+                          <VisibilityOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Edit Document" placement="top">
+                        <IconButton
+                          size="small"
+                          component={Link}
+                          to={`/editor/${doc.id}`}
+                          className="edit-button"
+                          sx={{
+                            color: "#3498db",
+                            transition: "all 0.3s ease",
+                            "&:hover": {
+                              color: "#2980b9",
+                              transform: "scale(1.1)",
+                              backgroundColor: "rgba(52, 152, 219, 0.1)",
+                            },
+                          }}
+                        >
+                          <EditOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Document" placement="top">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteDocument(doc)}
+                          className="delete-button"
+                          sx={{
+                            color: "#e74c3c",
+                            transition: "all 0.3s ease",
+                            "&:hover": {
+                              color: "#c0392b",
+                              transform: "scale(1.1)",
+                              backgroundColor: "rgba(231, 76, 60, 0.1)",
+                            },
+                          }}
+                        >
+                          <DeleteOutline fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   </ListItem>
                   {index < filteredDocuments.length - 1 && <Divider />}
@@ -470,6 +595,105 @@ const filteredDocuments = documents.filter((doc) => {
             </Button>
             <Button onClick={handleSubmit} color="primary" variant="contained">
               Create Document
+            </Button>
+          </DialogActions>
+        </Dialog>
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={cancelDelete}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+              boxShadow: "0 16px 48px rgba(0, 0, 0, 0.2)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              textAlign: "center",
+              fontWeight: 700,
+              color: "#2c3e50",
+              fontSize: "1.5rem",
+              pb: 1,
+            }}
+          >
+            Delete Document
+          </DialogTitle>
+          <DialogContent sx={{ textAlign: "center", py: 3 }}>
+            <Box sx={{ mb: 2 }}>
+              <DeleteOutline
+                sx={{
+                  fontSize: 48,
+                  color: "#e74c3c",
+                  mb: 2,
+                }}
+              />
+            </Box>
+            <Typography variant="body1" sx={{ mb: 1, fontWeight: 600 }}>
+              Are you sure you want to delete this document?
+            </Typography>
+            {documentToDelete && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                "{documentToDelete.title}" will be permanently deleted.
+              </Typography>
+            )}
+            <Typography
+              variant="caption"
+              color="error"
+              sx={{ fontStyle: "italic" }}
+            >
+              This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions
+            sx={{
+              justifyContent: "center",
+              gap: 2,
+              pb: 3,
+              px: 3,
+            }}
+          >
+            <Button
+              onClick={cancelDelete}
+              variant="outlined"
+              sx={{
+                borderColor: "#95a5a6",
+                color: "#95a5a6",
+                borderRadius: 2,
+                fontWeight: 600,
+                textTransform: "none",
+                px: 3,
+                "&:hover": {
+                  borderColor: "#7f8c8d",
+                  backgroundColor: "rgba(149, 165, 166, 0.1)",
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              variant="contained"
+              sx={{
+                background: "linear-gradient(135deg, #e74c3c, #c0392b)",
+                borderRadius: 2,
+                fontWeight: 600,
+                textTransform: "none",
+                px: 3,
+                boxShadow: "0 4px 16px rgba(231, 76, 60, 0.3)",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #c0392b, #e74c3c)",
+                  boxShadow: "0 6px 24px rgba(231, 76, 60, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+              }}
+            >
+              Delete
             </Button>
           </DialogActions>
         </Dialog>
