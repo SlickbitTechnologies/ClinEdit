@@ -79,7 +79,9 @@ export default function EditorPage() {
   const togglePanel = (i) => {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
   };
-
+  const getSectionLabel = (sectionIndex) => `${sectionIndex + 1}.`;
+  const getSubsectionLabel = (sectionIndex, subsectionIndex) =>
+    `${sectionIndex + 1}.${subsectionIndex + 1}`;
   // Build the full document content from sections and sectionsContent
   const buildFullDoc = (sections, sectionsContent) => {
     return {
@@ -100,7 +102,9 @@ export default function EditorPage() {
                   content: [
                     {
                       type: "text",
-                      text: `Enter content for ${section.title}...`,
+                      text: `Enter content for ${getSectionLabel(secIdx)} ${
+                        section.title
+                      }...`,
                     },
                   ],
                 },
@@ -109,16 +113,30 @@ export default function EditorPage() {
         const sectionNode = [
           {
             type: "heading",
-
             attrs: { level: 4, textAlign: "left" },
-            content: [{ type: "text", text: section.title }],
+            content: [
+              {
+                type: "text",
+                text: `${getSectionLabel(secIdx)} ${section.title}`,
+              },
+            ],
           },
           ...secContent,
         ];
 
         const subsectionsNodes = (section.subsections || []).flatMap(
           (sub, subIdx) => {
-            const subId = sub.id || `${secId}-sub-${subIdx}`;
+            const subTitle = typeof sub === "string" ? sub : sub.title;
+
+            // Skip subsections that are identical to the main section title
+            if (subTitle === section.title) {
+              return [];
+            }
+
+            // Use consistent ID generation that matches saveDraft function
+            const subId =
+              sub.id || `${secId}-sub-${section.subsections.indexOf(sub)}`;
+
             const subContent =
               sectionsContent[subId]?.content &&
               sectionsContent[subId].content.length > 0
@@ -133,7 +151,10 @@ export default function EditorPage() {
                       content: [
                         {
                           type: "text",
-                          text: `Enter content for ${sub.title}...`,
+                          text: `Enter content for ${getSubsectionLabel(
+                            secIdx,
+                            section.subsections.indexOf(sub)
+                          )} ${subTitle}...`,
                         },
                       ],
                     },
@@ -143,7 +164,15 @@ export default function EditorPage() {
               {
                 type: "heading",
                 attrs: { level: 5, textAlign: "left" },
-                content: [{ type: "text", text: sub.title }],
+                content: [
+                  {
+                    type: "text",
+                    text: `${getSubsectionLabel(
+                      secIdx,
+                      section.subsections.indexOf(sub)
+                    )} ${subTitle}`,
+                  },
+                ],
               },
               ...subContent,
             ];
@@ -203,13 +232,8 @@ export default function EditorPage() {
                 }
               });
             } else {
-              subsections = [
-                {
-                  id: s.id + "-sub0",
-                  title: s.title || "Untitled",
-                  description: "",
-                },
-              ];
+              // Don't create subsections if none exist - this prevents duplication
+              subsections = [];
             }
             return {
               ...s,
@@ -349,7 +373,12 @@ export default function EditorPage() {
       for (const node of json.content) {
         if (node.type === "heading" && node.attrs?.level === 4) {
           const headingText = node.content?.[0]?.text;
-          if (headingText === section.title) {
+          // Check if this heading matches the section title (with or without numbering)
+          const sectionTitleMatch =
+            headingText === section.title ||
+            headingText === `${getSectionLabel(secIdx)} ${section.title}`;
+
+          if (sectionTitleMatch) {
             inSection = true;
             currentTarget = sectionNodes;
             currentSubId = null;
@@ -368,11 +397,26 @@ export default function EditorPage() {
         }
 
         if (node.type === "heading" && node.attrs?.level === 5) {
-          const subsection = section.subsections.find(
-            (s) => s.title === node.content?.[0]?.text
-          );
+          // Extract subsection title from heading text (remove numbering)
+          const headingText = node.content?.[0]?.text;
+          const subsectionTitle = headingText.replace(/^\d+\.\d+\s+/, ""); // Remove "2.1 " prefix
+
+          // Find subsection by title (case-insensitive and flexible matching)
+          const subsection = section.subsections.find((s) => {
+            const subTitle = typeof s === "string" ? s : s.title;
+            return (
+              subTitle &&
+              (subTitle === subsectionTitle ||
+                subTitle.toLowerCase() === subsectionTitle.toLowerCase())
+            );
+          });
+
           if (subsection) {
-            currentSubId = subsection.id;
+            const subId =
+              typeof subsection === "string"
+                ? `${secId}-sub-${section.subsections.indexOf(subsection)}`
+                : subsection.id;
+            currentSubId = subId;
             subsectionsContent[currentSubId] = [];
             currentTarget = subsectionsContent[currentSubId];
           }
@@ -385,13 +429,17 @@ export default function EditorPage() {
       return {
         ...section,
         description: JSON.stringify({ type: "doc", content: sectionNodes }),
-        subsections: section.subsections.map((sub, idx) => ({
-          ...sub,
-          description: JSON.stringify({
-            type: "doc",
-            content: subsectionsContent[sub.id] || [],
-          }),
-        })),
+        subsections: section.subsections.map((sub, idx) => {
+          const subId =
+            typeof sub === "string" ? `${secId}-sub-${idx}` : sub.id;
+          return {
+            ...sub,
+            description: JSON.stringify({
+              type: "doc",
+              content: subsectionsContent[subId] || [],
+            }),
+          };
+        }),
       };
     });
 
@@ -399,8 +447,24 @@ export default function EditorPage() {
 
     try {
       await updateDocument(doc.id, updatedDoc); // 🔹 API call here
-      toast.success("Draft saved successfully!");  
-  } catch (error) {
+      toast.success("Draft saved successfully!");
+
+      // Update local state to reflect the saved content
+      setSectionsContent((prev) => {
+        const updated = { ...prev };
+        updatedSections.forEach((section) => {
+          const secId = section.id || `sec-${sections.indexOf(section)}`;
+          updated[secId] = JSON.parse(section.description);
+
+          section.subsections.forEach((sub, idx) => {
+            const subId =
+              typeof sub === "string" ? `${secId}-sub-${idx}` : sub.id;
+            updated[subId] = JSON.parse(sub.description);
+          });
+        });
+        return updated;
+      });
+    } catch (error) {
       console.error("Error saving draft:", error);
       toast.error("Failed to save draft. Please try again.");
     }
@@ -519,7 +583,7 @@ export default function EditorPage() {
                 gutterBottom
                 sx={{ fontWeight: 700, color: "#2c3e50", mb: 3 }}
               >
-                 Sections
+                Sections
               </Typography>
 
               {sections.map((section, i) => (
@@ -545,9 +609,31 @@ export default function EditorPage() {
                 >
                   <AccordionSummary
                     expandIcon={<ExpandMoreIcon />}
+                    onClick={() => {
+                      setSelectedSectionIndex(i);
+                      setSelectedSubsectionId(null);
+                      setTimeout(() => {
+                        // Find the main section heading
+                        const sectionLabel = `${getSectionLabel(i)} ${
+                          section.title
+                        }`;
+                        const headings = document.querySelectorAll(
+                          ".ProseMirror h4, .ProseMirror h5"
+                        );
+                        headings.forEach((h) => {
+                          if (h.textContent === sectionLabel) {
+                            h.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                          }
+                        });
+                      }, 100);
+                    }}
                     sx={{
                       borderRadius: 3,
                       "&.Mui-expanded": { minHeight: 48 },
+                      cursor: "pointer",
                     }}
                   >
                     <Box sx={{ flexGrow: 1, pr: 1 }}>
@@ -560,6 +646,7 @@ export default function EditorPage() {
                           mb: 0.5,
                         }}
                       >
+                        {getSectionLabel(i)}
                         {section.title}
                       </Typography>
                       {/* Description removed from sidebar */}
@@ -567,43 +654,86 @@ export default function EditorPage() {
                   </AccordionSummary>
                   <AccordionDetails sx={{ pt: 0 }}>
                     <List dense sx={{ py: 0 }}>
-                      {section.subsections.map((sub, idx) => (
-                        <ListItem
-                          key={sub.id || idx}
-                          button
-                          onClick={() => {
-                            if (!openPanels[i]) togglePanel(i);
-                            setSelectedSectionIndex(i);
-                            setSelectedSubsectionId(sub.id);
-                            setTimeout(() => {
-                              const headings = document.querySelectorAll(
-                                ".ProseMirror h4, .ProseMirror h5"
-                              );
-                              headings.forEach((h) => {
-                                if (h.textContent === sub.title) {
-                                  h.scrollIntoView({
-                                    behavior: "smooth",
-                                    block: "center",
+                      {section.subsections
+                        .map((sub, originalIdx) => {
+                          const subTitle =
+                            typeof sub === "string" ? sub : sub.title;
+                          // Skip subsections that are identical to the main section title
+                          if (subTitle === section.title) {
+                            return null;
+                          }
+                          return (
+                            <ListItem
+                              key={
+                                sub.id ||
+                                `${section.id || `sec-${i}`}-sub-${originalIdx}`
+                              }
+                              button
+                              onClick={() => {
+                                if (!openPanels[i]) togglePanel(i);
+                                setSelectedSectionIndex(i);
+                                setSelectedSubsectionId(sub.id);
+                                setTimeout(() => {
+                                  // Find the subsection heading by looking for the specific subsection label
+                                  const subsectionLabel = `${getSubsectionLabel(
+                                    i,
+                                    originalIdx
+                                  )} ${subTitle}`;
+                                  const headings = document.querySelectorAll(
+                                    ".ProseMirror h4, .ProseMirror h5"
+                                  );
+                                  let found = false;
+                                  headings.forEach((h) => {
+                                    if (h.textContent === subsectionLabel) {
+                                      h.scrollIntoView({
+                                        behavior: "smooth",
+                                        block: "center",
+                                      });
+                                      found = true;
+                                    }
                                   });
-                                }
-                              });
-                            }, 100);
-                          }}
-                          sx={{
-                            borderRadius: 1,
-                            mb: 0.5,
-                            "&:hover": { bgcolor: "rgba(22,160,133,0.1)" },
-                          }}
-                        >
-                          <ListItemText
-                            primary={sub.title || sub}
-                            primaryTypographyProps={{
-                              fontSize: "0.85rem",
-                              fontWeight: 500,
-                            }}
-                          />
-                        </ListItem>
-                      ))}
+
+                                  // Fallback: if exact match not found, try to find by subsection title
+                                  if (!found) {
+                                    headings.forEach((h) => {
+                                      if (
+                                        h.textContent.includes(subTitle) &&
+                                        h.textContent.includes(
+                                          `${getSubsectionLabel(
+                                            i,
+                                            originalIdx
+                                          )}`
+                                        )
+                                      ) {
+                                        h.scrollIntoView({
+                                          behavior: "smooth",
+                                          block: "center",
+                                        });
+                                      }
+                                    });
+                                  }
+                                }, 100);
+                              }}
+                              sx={{
+                                borderRadius: 1,
+                                mb: 0.5,
+                                "&:hover": { bgcolor: "rgba(22,160,133,0.1)" },
+                              }}
+                            >
+                              <ListItemText
+                                primary={`${getSubsectionLabel(
+                                  i,
+                                  originalIdx
+                                )} ${subTitle}`}
+                                primaryTypographyProps={{
+                                  fontSize: "0.85rem",
+                                  fontWeight: 500,
+                                }}
+                              />
+                            </ListItem>
+                          );
+                        })
+                        .filter(Boolean)}
                     </List>
                   </AccordionDetails>
                 </Accordion>
