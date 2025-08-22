@@ -39,6 +39,8 @@ import {
   Link as LinkIcon,
   HMobiledata as HMobiledataIcon,
   Highlight as HighlightIcon,
+  FindReplace as FindReplaceIcon,
+  StrikethroughS as StrikethroughIcon,
 } from "@mui/icons-material";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -47,6 +49,12 @@ import Heading from "@tiptap/extension-heading";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { FontFamily } from "@tiptap/extension-font-family";
+import { FontSize } from "@tiptap/extension-font-size";
+import Underline from "@tiptap/extension-underline";
+import Strike from "@tiptap/extension-strike";
+
 import { getDocumentById, updateDocument } from "../services/services";
 import "./EditorPage.css";
 import { Tag } from "lucide-react";
@@ -75,6 +83,11 @@ export default function EditorPage() {
   const { id } = useParams();
   const [sections, setSections] = useState(initialFallbackSections);
   const [sectionsContent, setSectionsContent] = useState({});
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findText, setFindText] = useState("");
+  const [replaceText, setReplaceText] = useState("");
+  const [currentMatch, setCurrentMatch] = useState(0);
+  const [totalMatches, setTotalMatches] = useState(0);
 
   const togglePanel = (i) => {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
@@ -189,7 +202,12 @@ export default function EditorPage() {
       Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
       Link.configure({ openOnClick: false }),
       Highlight,
+      Underline,
+      Strike,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TextStyle.configure({ types: ["textStyle"] }),
+      FontFamily.configure({ types: ["textStyle"] }),
+      FontSize.configure({ types: ["textStyle"] }),
     ],
     content: buildFullDoc(sections, sectionsContent),
   });
@@ -488,6 +506,214 @@ export default function EditorPage() {
     // Generate and download PDF
     html2pdf().set(options).from(element).save();
   };
+  // Find and Replace functions
+  const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // State for tracking find matches
+  const [findMatches, setFindMatches] = useState([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
+
+  const findInDocument = () => {
+    if (!editor || !findText.trim()) return;
+
+    const searchText = findText.trim();
+    const content = editor.state.doc.textContent;
+    const regex = new RegExp(escapeRegExp(searchText), "gi");
+    const matches = [];
+    let match;
+
+    // Find all matches and their positions
+    while ((match = regex.exec(content)) !== null) {
+      matches.push({
+        from: match.index,
+        to: match.index + match[0].length,
+        text: match[0],
+      });
+    }
+
+    setFindMatches(matches);
+    setTotalMatches(matches.length);
+
+    if (matches.length > 0) {
+      setCurrentMatchIndex(0);
+      setCurrentMatch(1);
+      // Navigate to first match
+      navigateToMatch(0);
+    } else {
+      setCurrentMatchIndex(-1);
+      setCurrentMatch(0);
+    }
+  };
+
+  const navigateToMatch = (index) => {
+    if (index < 0 || index >= findMatches.length) return;
+
+    const match = findMatches[index];
+    editor.commands.setTextSelection(match.from, match.to);
+    editor.commands.focus();
+
+    // Scroll the match into view
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        selection.getRangeAt(0).startContainer.parentElement?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }, 100);
+  };
+
+  const replaceInDocument = () => {
+    if (!editor || !findText.trim()) return;
+
+    const searchText = findText.trim();
+    const replaceWith = (replaceText || "").toString();
+
+    // Replace all occurrences in the document
+    const content = editor.state.doc.textContent;
+    const regex = new RegExp(escapeRegExp(searchText), "g");
+    const newContent = content.replace(regex, replaceWith);
+
+    // Update the editor content
+    editor.commands.setContent(newContent, false);
+
+    // Reset find/replace state
+    setFindText("");
+    setReplaceText("");
+    setShowFindReplace(false);
+    setTotalMatches(0);
+    setCurrentMatch(0);
+    setCurrentMatchIndex(-1);
+    setFindMatches([]);
+  };
+
+  const replaceCurrent = () => {
+    if (!editor || !findText.trim() || currentMatchIndex < 0) return;
+
+    const replaceWith = (replaceText || "").toString();
+    const currentMatch = findMatches[currentMatchIndex];
+
+    // Replace the current match
+    editor.commands.setTextSelection(currentMatch.from, currentMatch.to);
+    editor.commands.insertContent(replaceWith);
+
+    // Update the matches array since content changed
+    const newContent = editor.state.doc.textContent;
+    const regex = new RegExp(escapeRegExp(findText.trim()), "gi");
+    const newMatches = [];
+    let match;
+
+    while ((match = regex.exec(newContent)) !== null) {
+      newMatches.push({
+        from: match.index,
+        to: match.index + match[0].length,
+        text: match[0],
+      });
+    }
+
+    setFindMatches(newMatches);
+    setTotalMatches(newMatches.length);
+
+    // Move to next match if available
+    if (newMatches.length > 0) {
+      const nextIndex =
+        currentMatchIndex < newMatches.length ? currentMatchIndex : 0;
+      setCurrentMatchIndex(nextIndex);
+      setCurrentMatch(nextIndex + 1);
+      navigateToMatch(nextIndex);
+    } else {
+      setCurrentMatchIndex(-1);
+      setCurrentMatch(0);
+    }
+  };
+
+  const findNext = () => {
+    if (!editor || !findText.trim() || findMatches.length === 0) return;
+
+    const nextIndex = (currentMatchIndex + 1) % findMatches.length;
+    setCurrentMatchIndex(nextIndex);
+    setCurrentMatch(nextIndex + 1);
+    navigateToMatch(nextIndex);
+  };
+
+  const findPrevious = () => {
+    if (!editor || !findText.trim() || findMatches.length === 0) return;
+
+    const prevIndex =
+      currentMatchIndex <= 0 ? findMatches.length - 1 : currentMatchIndex - 1;
+    setCurrentMatchIndex(prevIndex);
+    setCurrentMatch(prevIndex + 1);
+    navigateToMatch(prevIndex);
+  };
+
+  // Subsection creation function
+  const createSubsection = () => {
+    if (!editor) return;
+
+    const currentSection = sections[selectedSectionIndex];
+    if (!currentSection) return;
+
+    // Get current cursor position
+    const { from } = editor.state.selection;
+
+    // Create new subsection heading
+    const newSubsectionTitle = `New Subsection ${
+      currentSection.subsections.length + 1
+    }`;
+    const subsectionNumber = `${getSectionLabel(selectedSectionIndex)}.${
+      currentSection.subsections.length + 1
+    }`;
+
+    // Insert the new subsection heading
+    editor.commands.insertContentAt(from, [
+      {
+        type: "heading",
+        attrs: { level: 5, textAlign: "left" },
+        content: [
+          { type: "text", text: `${subsectionNumber} ${newSubsectionTitle}` },
+        ],
+      },
+      {
+        type: "paragraph",
+        attrs: { textAlign: "left" },
+        content: [
+          { type: "text", text: "Enter content for new subsection..." },
+        ],
+      },
+    ]);
+
+    // Update local sections state to include the new subsection
+    const updatedSections = [...sections];
+    const newSubsection = {
+      id: `${currentSection.id || `sec-${selectedSectionIndex}`}-sub-${
+        currentSection.subsections.length
+      }`,
+      title: newSubsectionTitle,
+      description: "",
+    };
+
+    updatedSections[selectedSectionIndex].subsections.push(newSubsection);
+    setSections(updatedSections);
+
+    // Update sectionsContent for the new subsection
+    setSectionsContent((prev) => ({
+      ...prev,
+      [newSubsection.id]: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { textAlign: "left" },
+            content: [
+              { type: "text", text: "Enter content for new subsection..." },
+            ],
+          },
+        ],
+      },
+    }));
+  };
+
   const headerTitle =
     doc?.meta_data?.metadata?.studyTitle ||
     (doc && doc.id
@@ -822,6 +1048,119 @@ export default function EditorPage() {
             </Toolbar>
           </AppBar>
 
+          {/* Find and Replace Bar */}
+          {showFindReplace && (
+            <Box
+              sx={{
+                background: "white",
+                borderBottom: "1px solid #e0e4e7",
+                p: 2,
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <input
+                  type="text"
+                  placeholder="Find..."
+                  value={findText}
+                  onChange={(e) => setFindText(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && findInDocument()}
+                  style={{
+                    padding: "8px 12px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    minWidth: "200px",
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Replace with..."
+                  value={replaceText}
+                  onChange={(e) => setReplaceText(e.target.value)}
+                  style={{
+                    padding: "8px 12px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    minWidth: "200px",
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={findInDocument}
+                  sx={{ textTransform: "none" }}
+                >
+                  Find
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={findPrevious}
+                  disabled={totalMatches === 0}
+                  sx={{ textTransform: "none" }}
+                >
+                  ↑
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={findNext}
+                  disabled={totalMatches === 0}
+                  sx={{ textTransform: "none" }}
+                >
+                  ↓
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={replaceCurrent}
+                  disabled={totalMatches === 0}
+                  sx={{ textTransform: "none" }}
+                >
+                  Replace
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={replaceInDocument}
+                  disabled={totalMatches === 0}
+                  sx={{ textTransform: "none" }}
+                >
+                  Replace All
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setShowFindReplace(false);
+                    // Clear find state when closing
+                    setFindMatches([]);
+                    setCurrentMatchIndex(-1);
+                    setCurrentMatch(0);
+                    setTotalMatches(0);
+                  }}
+                  sx={{ textTransform: "none" }}
+                >
+                  ✕
+                </Button>
+              </Box>
+
+              {totalMatches > 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  {currentMatch} of {totalMatches} matches
+                </Typography>
+              )}
+            </Box>
+          )}
+
           {/* Editor Toolbar */}
           <Toolbar
             variant="dense"
@@ -922,6 +1261,21 @@ export default function EditorPage() {
                 <HighlightIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+            <Tooltip title="Strikethrough">
+              <IconButton
+                onClick={() => editor?.chain().focus().toggleStrike().run()}
+                color={editor?.isActive("strike") ? "primary" : "default"}
+                size="small"
+                sx={{
+                  bgcolor: editor?.isActive("strike")
+                    ? "rgba(22, 160, 133, 0.1)"
+                    : "white",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                <StrikethroughIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             <Divider orientation="vertical" flexItem />
             <Tooltip title="Bullet List">
               <IconButton
@@ -991,6 +1345,150 @@ export default function EditorPage() {
                 <LinkIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+
+            <Tooltip title="Find and Replace">
+              <IconButton
+                onClick={() => setShowFindReplace(!showFindReplace)}
+                color={showFindReplace ? "primary" : "default"}
+                size="small"
+                sx={{
+                  bgcolor: showFindReplace
+                    ? "rgba(22, 160, 133, 0.1)"
+                    : "white",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                <FindReplaceIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Create Subsection">
+              <IconButton
+                onClick={createSubsection}
+                size="small"
+                sx={{
+                  bgcolor: "white",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                <Tag fontSize="small" />
+              </IconButton>
+            </Tooltip>
+
+            <Divider orientation="vertical" flexItem />
+
+            <Tooltip title="Font Size">
+              <select
+                onChange={(e) => {
+                  if (e.target.value && editor) {
+                    try {
+                      console.log("Setting font size:", e.target.value);
+                      // Try different approaches
+                      if (editor.can().setFontSize(e.target.value)) {
+                        editor
+                          .chain()
+                          .focus()
+                          .setFontSize(e.target.value)
+                          .run();
+                        console.log("Font size command executed");
+                      } else {
+                        console.log("Font size command not available");
+                        // Fallback: try to set inline style
+                        editor
+                          .chain()
+                          .focus()
+                          .setMark("textStyle", { fontSize: e.target.value })
+                          .run();
+                      }
+                    } catch (error) {
+                      console.warn("Font size not supported:", error);
+                    }
+                  }
+                }}
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  background: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">Size</option>
+                <option value="8px">8px</option>
+                <option value="10px">10px</option>
+                <option value="12px">12px</option>
+                <option value="14px">14px</option>
+                <option value="16px">16px</option>
+                <option value="18px">18px</option>
+                <option value="20px">20px</option>
+                <option value="24px">24px</option>
+                <option value="28px">28px</option>
+                <option value="32px">32px</option>
+                <option value="36px">36px</option>
+                <option value="48px">48px</option>
+                <option value="64px">64px</option>
+                <option value="72px">72px</option>
+                <option value="96px">96px</option>
+              </select>
+            </Tooltip>
+
+            <Tooltip title="Font Family">
+              <select
+                onChange={(e) => {
+                  if (e.target.value && editor) {
+                    try {
+                      console.log("Setting font family:", e.target.value);
+                      // Try different approaches
+                      if (editor.can().setFontFamily(e.target.value)) {
+                        editor
+                          .chain()
+                          .focus()
+                          .setFontFamily(e.target.value)
+                          .run();
+                        console.log("Font family command executed");
+                      } else {
+                        console.log("Font family command not available");
+                        // Fallback: try to set inline style
+                        editor
+                          .chain()
+                          .focus()
+                          .setMark("textStyle", { fontFamily: e.target.value })
+                          .run();
+                      }
+                    } catch (error) {
+                      console.warn("Font family not supported:", error);
+                    }
+                  }
+                }}
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  background: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">Font</option>
+                <option value="Arial">Arial</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Helvetica">Helvetica</option>
+                <option value="Comic Sans MS">Comic Sans MS</option>
+                <option value="Impact">Impact</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Trebuchet MS">Trebuchet MS</option>
+                <option value="Lucida Console">Lucida Console</option>
+                <option value="Palatino">Palatino</option>
+                <option value="Garamond">Garamond</option>
+                <option value="Bookman">Bookman</option>
+                <option value="Avant Garde">Avant Garde</option>
+              </select>
+            </Tooltip>
+
             <Divider orientation="vertical" flexItem />
             <Tooltip title="Align Left">
               <IconButton

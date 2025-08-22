@@ -643,3 +643,42 @@
 .ProseMirror blockquote p {
   margin: 0;
 }
+
+/* Font styling extensions */
+.ProseMirror [data-font-size] {
+  /* Font size will be applied via inline styles */
+}
+
+/* Specific font size classes */
+.ProseMirror [data-font-size="8px"] { font-size: 8px; }
+.ProseMirror [data-font-size="10px"] { font-size: 10px; }
+.ProseMirror [data-font-size="12px"] { font-size: 12px; }
+.ProseMirror [data-font-size="14px"] { font-size: 14px; }
+.ProseMirror [data-font-size="16px"] { font-size: 16px; }
+.ProseMirror [data-font-size="18px"] { font-size: 18px; }
+.ProseMirror [data-font-size="20px"] { font-size: 20px; }
+.ProseMirror [data-font-size="24px"] { font-size: 24px; }
+.ProseMirror [data-font-size="28px"] { font-size: 28px; }
+.ProseMirror [data-font-size="32px"] { font-size: 32px; }
+.ProseMirror [data-font-size="36px"] { font-size: 36px; }
+.ProseMirror [data-font-size="48px"] { font-size: 48px; }
+.ProseMirror [data-font-size="64px"] { font-size: 64px; }
+.ProseMirror [data-font-size="72px"] { font-size: 72px; }
+.ProseMirror [data-font-size="96px"] { font-size: 96px; }
+
+/* Font family classes */
+.ProseMirror [data-font-family="Arial"] { font-family: Arial, sans-serif; }
+.ProseMirror [data-font-family="Times New Roman"] { font-family: "Times New Roman", serif; }
+.ProseMirror [data-font-family="Courier New"] { font-family: "Courier New", monospace; }
+.ProseMirror [data-font-family="Georgia"] { font-family: Georgia, serif; }
+.ProseMirror [data-font-family="Verdana"] { font-family: Verdana, sans-serif; }
+.ProseMirror [data-font-family="Helvetica"] { font-family: Helvetica, sans-serif; }
+.ProseMirror [data-font-family="Comic Sans MS"] { font-family: "Comic Sans MS", cursive; }
+.ProseMirror [data-font-family="Impact"] { font-family: Impact, fantasy; }
+.ProseMirror [data-font-family="Tahoma"] { font-family: Tahoma, sans-serif; }
+.ProseMirror [data-font-family="Trebuchet MS"] { font-family: "Trebuchet MS", sans-serif; }
+.ProseMirror [data-font-family="Lucida Console"] { font-family: "Lucida Console", monospace; }
+.ProseMirror [data-font-family="Palatino"] { font-family: Palatino, serif; }
+.ProseMirror [data-font-family="Garamond"] { font-family: Garamond, serif; }
+.ProseMirror [data-font-family="Bookman"] { font-family: Bookman, serif; }
+.ProseMirror [data-font-family="Avant Garde"] { font-family: "Avant Garde", sans-serif; }
