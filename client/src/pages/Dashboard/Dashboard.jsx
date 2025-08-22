@@ -48,16 +48,16 @@ import {
 } from "@mui/icons-material";
 import "./DashboardPage.css";
 import { createCSRDocument,getDocuments,deleteDocument } from "../services/services";
+import { Bold } from "lucide-react";
 
 export default function DashboardPage() {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true); // optional loader
   const hasFetched = useRef(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
-
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -78,20 +78,25 @@ export default function DashboardPage() {
     sponsorCode: "",
   });
 
-const filteredDocuments = documents.filter((doc) => {
-  const matchesSearch =
-    doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.meta_data?.author?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch =
+      doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.meta_data?.author?.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const matchesFilter =
-    filterType === "all" ||
-    doc.meta_data?.documentType
-      ?.toLowerCase()
-      .includes(filterType.toLowerCase());
+    const matchesFilter =
+      filterType === "all" ||
+      doc.meta_data?.documentType
+        ?.toLowerCase()
+        .includes(filterType.toLowerCase());
 
-  return matchesSearch && matchesFilter;
-});
-
+    return matchesSearch && matchesFilter;
+  });
+  // Sort documents by date descending (recent first)
+  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
+    const dateA = new Date(a.meta_data?.metadata?.documentDate);
+    const dateB = new Date(b.meta_data?.metadata?.documentDate);
+    return dateB - dateA; // recent first
+  });
 
   const handleViewModeChange = (event, newViewMode) => {
     if (newViewMode !== null) {
@@ -135,7 +140,7 @@ const filteredDocuments = documents.filter((doc) => {
       await fetchDocs();
       toast.success("Document created successfully!");
       if (newDoc && newDoc.id) {
-        navigate(`/dashboard/editor/${newDoc.id}`); 
+        navigate(`/dashboard/editor/${newDoc.id}`);
       }
     } catch (error) {
       console.error("Failed to create document:", error);
@@ -143,46 +148,46 @@ const filteredDocuments = documents.filter((doc) => {
     }
   };
   const handleEdit = (id) => {
-      navigate(`/dashboard/editor/${id}`);
-    };
+    navigate(`/dashboard/editor/${id}`);
+  };
 
   const fetchDocs = async () => {
-        try {
-          const docs = await getDocuments();
-          console.log(docs);
-          setDocuments(docs);
-        } catch (error) {
-          console.error("Error loading documents:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
+    try {
+      const docs = await getDocuments();
+      console.log(docs);
+      setDocuments(docs);
+    } catch (error) {
+      console.error("Error loading documents:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-          if (!hasFetched.current) {
-            hasFetched.current = true;
-              fetchDocs();
-          }
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchDocs();
+    }
   }, [fetchDocs]);
   const handleDeleteDocument = (document) => {
     setDocumentToDelete(document);
     setDeleteDialogOpen(true);
   };
 
-const confirmDelete = async () => {
-  if (documentToDelete) {
-    try {
-      await deleteDocument(documentToDelete.id); // call backend
-      setDocuments(documents.filter((doc) => doc.id !== documentToDelete.id)); // update UI
-      toast.success("Document deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete document:", error);
-      toast.error("Failed to delete document.");
-    } finally {
-      setDeleteDialogOpen(false);
-      setDocumentToDelete(null);
+  const confirmDelete = async () => {
+    if (documentToDelete) {
+      try {
+        await deleteDocument(documentToDelete.id); // call backend
+        setDocuments(documents.filter((doc) => doc.id !== documentToDelete.id)); // update UI
+        toast.success("Document deleted successfully!");
+      } catch (error) {
+        console.error("Failed to delete document:", error);
+        toast.error("Failed to delete document.");
+      } finally {
+        setDeleteDialogOpen(false);
+        setDocumentToDelete(null);
+      }
     }
-  }
-};
+  };
 
   const cancelDelete = () => {
     setDeleteDialogOpen(false);
@@ -244,13 +249,19 @@ const confirmDelete = async () => {
             </ToggleButtonGroup>
           </Box>
         </Paper>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="h5" className="recent-label" textAlign={"left"} fontWeight={"Bold"}>
+            Recent
+          </Typography>
+        </Box>
 
         {viewMode === "grid" ? (
           <div className="documents-grid">
             {/* Create New Document Card */}
 
             {/* Existing Documents */}
-            {filteredDocuments.map((doc) => (
+
+            {sortedDocuments.map((doc) => (
               <div className="grid-item" key={doc.id}>
                 <Card className="document-card">
                   <CardContent>
@@ -281,26 +292,8 @@ const confirmDelete = async () => {
                     </Box>
                   </CardContent>
                   <CardActions className="doc-actions">
-                    {/* <Tooltip title="View Document" placement="top">
-                      <IconButton
-                        size="small"
-                        className="view-button"
-                        sx={{
-                          color: "#16a085",
-                          transition: "all 0.3s ease",
-                          "&:hover": {
-                            color: "#2c3e50",
-                            transform: "scale(1.1)",
-                            backgroundColor: "rgba(22, 160, 133, 0.1)",
-                          },
-                        }}
-                      >
-                        <VisibilityOutlined fontSize="small" />
-                      </IconButton>
-                    </Tooltip> */}
                     <Tooltip title="Edit Document" placement="top">
                       <IconButton
-                       
                         size="small"
                         onClick={() => handleEdit(doc.id)}
                         className="edit-button"
@@ -319,9 +312,9 @@ const confirmDelete = async () => {
                     </Tooltip>
                     <Tooltip title="Delete Document" placement="top">
                       <IconButton
+                        className="delete-button"
                         size="small"
                         onClick={() => handleDeleteDocument(doc)}
-                        className="delete-button"
                         sx={{
                           color: "#e74c3c",
                           transition: "all 0.3s ease",
@@ -343,7 +336,7 @@ const confirmDelete = async () => {
         ) : (
           <Paper className="list-view" elevation={1}>
             <List>
-              {filteredDocuments.map((doc, index) => (
+              {sortedDocuments.map((doc, index) => (
                 <React.Fragment key={doc.id}>
                   <ListItem className="list-item">
                     <ListItemAvatar>
@@ -353,78 +346,60 @@ const confirmDelete = async () => {
                     </ListItemAvatar>
                     <ListItemText
                       primary={
-                        <Box className="list-primary">
-                          <Typography variant="h6" className="list-title">
-                            {doc.title}
-                          </Typography>
-                        </Box>
+                        <Typography variant="h6" className="list-title">
+                          {doc.meta_data?.metadata?.studyTitle}
+                        </Typography>
                       }
                       secondary={
-                        <Box className="list-secondary">
-                          <Typography variant="body2" color="textSecondary">
-                            {doc.type} • {doc.date} • {doc.author}
-                          </Typography>
-                        </Box>
+                        <Typography variant="body2" color="textSecondary">
+                          {doc.meta_data?.metadata?.documentType} •{" "}
+                          {doc.meta_data?.metadata?.documentDate} •{" "}
+                          {doc.meta_data?.metadata?.author}
+                        </Typography>
                       }
                     />
                     <Box className="list-actions">
-                      <Tooltip title="View Document" placement="top">
-                        <IconButton
-                          size="small"
-                          className="view-button"
-                          sx={{
-                            color: "#16a085",
-                            transition: "all 0.3s ease",
-                            "&:hover": {
-                              color: "#2c3e50",
-                              transform: "scale(1.1)",
-                              backgroundColor: "rgba(22, 160, 133, 0.1)",
-                            },
-                          }}
-                        >
-                          <VisibilityOutlined fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit Document" placement="top">
-                        <IconButton
-                          size="small"
-                          component={Link}
-                          to={`/editor/${doc.id}`}
-                          className="edit-button"
-                          sx={{
-                            color: "#3498db",
-                            transition: "all 0.3s ease",
-                            "&:hover": {
-                              color: "#2980b9",
-                              transform: "scale(1.1)",
-                              backgroundColor: "rgba(52, 152, 219, 0.1)",
-                            },
-                          }}
-                        >
-                          <EditOutlined fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Document" placement="top">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteDocument(doc)}
-                          className="delete-button"
-                          sx={{
-                            color: "#e74c3c",
-                            transition: "all 0.3s ease",
-                            "&:hover": {
-                              color: "#c0392b",
-                              transform: "scale(1.1)",
-                              backgroundColor: "rgba(231, 76, 60, 0.1)",
-                            },
-                          }}
-                        >
-                          <DeleteOutline fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      <CardActions className="doc-actions">
+                        <Tooltip title="Edit Document" placement="top">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(doc.id)}
+                            className="edit-button"
+                            sx={{
+                              color: "#3498db",
+                              transition: "all 0.3s ease",
+                              "&:hover": {
+                                color: "#2980b9",
+                                transform: "scale(1.1)",
+                                backgroundColor: "rgba(52, 152, 219, 0.1)",
+                              },
+                            }}
+                          >
+                            <EditOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete Document" placement="top">
+                          <IconButton
+                            className="delete-button"
+                            size="small"
+                            onClick={() => handleDeleteDocument(doc)}
+                            sx={{
+                              color: "#e74c3c",
+                              transition: "all 0.3s ease",
+                              "&:hover": {
+                                color: "#c0392b",
+                                transform: "scale(1.1)",
+                                backgroundColor: "rgba(231, 76, 60, 0.1)",
+                              },
+                            }}
+                          >
+                            <DeleteOutline fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </CardActions> 
                     </Box>
                   </ListItem>
-                  {index < filteredDocuments.length - 1 && <Divider />}
+                  {index < sortedDocuments.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
             </List>

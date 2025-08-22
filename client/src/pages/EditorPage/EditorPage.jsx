@@ -519,7 +519,7 @@ export default function EditorPage() {
                 gutterBottom
                 sx={{ fontWeight: 700, color: "#2c3e50", mb: 3 }}
               >
-                Protocol Sections
+                 Sections
               </Typography>
 
               {sections.map((section, i) => (

@@ -347,6 +347,127 @@
 .form-item.full-width {
   grid-column: span 2; /* takes full row */
 }
+/* Action Buttons Base Styling */
+.view-button,
+.edit-button,
+.delete-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 8px !important;
+  margin: 0 2px !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.view-button::before,
+.edit-button::before,
+.delete-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+  border-radius: 8px;
+}
+
+/* View Button Styling */
+.view-button {
+  color: #16a085 !important;
+}
+
+.view-button::before {
+  background: radial-gradient(circle, rgba(22, 160, 133, 0.1) 0%, transparent 70%);
+}
+
+.view-button:hover::before {
+  opacity: 1;
+}
+
+.view-button:hover {
+  color: #2c3e50 !important;
+  transform: scale(1.1) !important;
+  background: rgba(22, 160, 133, 0.1) !important;
+  box-shadow: 0 4px 16px rgba(22, 160, 133, 0.2) !important;
+}
+
+/* Edit Button Styling */
+.edit-button {
+  color: #3498db !important;
+}
+
+.edit-button::before {
+  background: radial-gradient(circle, rgba(52, 152, 219, 0.1) 0%, transparent 70%);
+}
+
+.edit-button:hover::before {
+  opacity: 1;
+}
+
+.edit-button:hover {
+  color: #2980b9 !important;
+  transform: scale(1.1) rotate(-5deg) !important;
+  background: rgba(52, 152, 219, 0.1) !important;
+  box-shadow: 0 4px 16px rgba(52, 152, 219, 0.2) !important;
+}
+
+/* Delete Button Styling */
+.delete-button {
+  color: #e74c3c !important;
+}
+
+.delete-button::before {
+  background: radial-gradient(circle, rgba(231, 76, 60, 0.1) 0%, transparent 70%);
+}
+
+.delete-button:hover::before {
+  opacity: 1;
+}
+
+.delete-button:hover {
+  color: #c0392b !important;
+  transform: scale(1.1) rotate(5deg) !important;
+  background: rgba(231, 76, 60, 0.1) !important;
+  box-shadow: 0 4px 16px rgba(231, 76, 60, 0.2) !important;
+}
+
+/* Active states for all buttons */
+.view-button:active,
+.edit-button:active,
+.delete-button:active {
+  transform: scale(0.95) !important;
+}
+
+/* Button animations */
+@keyframes viewPulse {
+  0%, 100% { transform: scale(1.1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes editRotate {
+  0%, 100% { transform: scale(1.1) rotate(-5deg); }
+  50% { transform: scale(1.15) rotate(-7deg); }
+}
+
+@keyframes deleteShake {
+  0%, 100% { transform: translateX(0) scale(1.1) rotate(5deg); }
+  25% { transform: translateX(-2px) scale(1.1) rotate(5deg); }
+  75% { transform: translateX(2px) scale(1.1) rotate(5deg); }
+}
+
+.view-button:hover {
+  animation: viewPulse 1s ease-in-out infinite;
+}
+
+.edit-button:hover {
+  animation: editRotate 1s ease-in-out infinite;
+}
+
+.delete-button:hover {
+  animation: deleteShake 0.5s ease-in-out infinite;
+}
 
 /* Responsive Design */
 @media (max-width: 768px) {
