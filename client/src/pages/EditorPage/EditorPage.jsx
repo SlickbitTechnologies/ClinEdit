@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import html2pdf from "html2pdf.js";
 import {
   Box,
@@ -398,10 +399,10 @@ export default function EditorPage() {
 
     try {
       await updateDocument(doc.id, updatedDoc); // 🔹 API call here
-      alert("Draft saved successfully!");
-    } catch (error) {
+      toast.success("Draft saved successfully!");  
+  } catch (error) {
       console.error("Error saving draft:", error);
-      alert("Failed to save draft. Please try again.");
+      toast.error("Failed to save draft. Please try again.");
     }
   };
   const exportContent = () => {
@@ -561,13 +562,7 @@ export default function EditorPage() {
                       >
                         {section.title}
                       </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ fontSize: "0.75rem" }}
-                      >
-                        {section.description}
-                      </Typography>
+                      {/* Description removed from sidebar */}
                     </Box>
                   </AccordionSummary>
                   <AccordionDetails sx={{ pt: 0 }}>
@@ -659,7 +654,7 @@ export default function EditorPage() {
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", gap: 1.5 }}>
-                <Button
+                {/* <Button
                   variant="outlined"
                   onClick={saveDraft}
                   sx={{
@@ -675,7 +670,7 @@ export default function EditorPage() {
                   }}
                 >
                   Preview
-                </Button>
+                </Button> */}
                 <Button
                   variant="outlined"
                   onClick={exportContent}

@@ -281,7 +281,7 @@ const confirmDelete = async () => {
                     </Box>
                   </CardContent>
                   <CardActions className="doc-actions">
-                    <Tooltip title="View Document" placement="top">
+                    {/* <Tooltip title="View Document" placement="top">
                       <IconButton
                         size="small"
                         className="view-button"
@@ -297,7 +297,7 @@ const confirmDelete = async () => {
                       >
                         <VisibilityOutlined fontSize="small" />
                       </IconButton>
-                    </Tooltip>
+                    </Tooltip> */}
                     <Tooltip title="Edit Document" placement="top">
                       <IconButton
                        
