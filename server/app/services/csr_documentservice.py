@@ -20,7 +20,6 @@ class DocumentService:
 
         sections = template.get("sections", [])
 
-        # 🔹 Merge metadata into description of TITLE PAGE instead of saving separately
         for section in sections:
             if section.get("title", "").upper() == "TITLE PAGE":
                 description = section.get("description", "")
@@ -31,6 +30,7 @@ class DocumentService:
         csr_document = {
             "id": doc_ref.id,
             "title": metadata.get("studyTitle", "Untitled CSR Document"),
+            "meta_data": metadata, 
             "sections": sections,
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),

@@ -94,3 +94,19 @@
   background: linear-gradient(90deg, #149174, #16a085) !important;
   transform: scale(1.02);
 }
+/* Drag & Drop Zone */
+.drag-drop-zone {
+  margin-top: 20px;
+  border: 2px dashed #16a085;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  background: rgba(22, 160, 133, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.drag-drop-zone:hover {
+  background: rgba(22, 160, 133, 0.1);
+  border-color: #1abc9c;
+}

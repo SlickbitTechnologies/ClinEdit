@@ -79,85 +79,84 @@ export default function EditorPage() {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
   };
 
-
   // Build the full document content from sections and sectionsContent
-const buildFullDoc = (sections, sectionsContent) => {
-  return {
-    type: "doc",
-    content: sections.flatMap((section, secIdx) => {
-      const secId = section.id || `sec-${secIdx}`;
-      const secContent =
-        sectionsContent[secId]?.content &&
-        sectionsContent[secId].content.length > 0
-          ? sectionsContent[secId].content.map((node) => ({
-              ...node,
-              attrs: { ...node.attrs, textAlign: "left" },
-            }))
-          : [
+  const buildFullDoc = (sections, sectionsContent) => {
+    return {
+      type: "doc",
+      content: sections.flatMap((section, secIdx) => {
+        const secId = section.id || `sec-${secIdx}`;
+        const secContent =
+          sectionsContent[secId]?.content &&
+          sectionsContent[secId].content.length > 0
+            ? sectionsContent[secId].content.map((node) => ({
+                ...node,
+                attrs: { ...node.attrs, textAlign: "left" },
+              }))
+            : [
+                {
+                  type: "paragraph",
+                  attrs: { textAlign: "left" },
+                  content: [
+                    {
+                      type: "text",
+                      text: `Enter content for ${section.title}...`,
+                    },
+                  ],
+                },
+              ];
+
+        const sectionNode = [
+          {
+            type: "heading",
+
+            attrs: { level: 4, textAlign: "left" },
+            content: [{ type: "text", text: section.title }],
+          },
+          ...secContent,
+        ];
+
+        const subsectionsNodes = (section.subsections || []).flatMap(
+          (sub, subIdx) => {
+            const subId = sub.id || `${secId}-sub-${subIdx}`;
+            const subContent =
+              sectionsContent[subId]?.content &&
+              sectionsContent[subId].content.length > 0
+                ? sectionsContent[subId].content.map((node) => ({
+                    ...node,
+                    attrs: { ...node.attrs, textAlign: "left" },
+                  }))
+                : [
+                    {
+                      type: "paragraph",
+                      attrs: { textAlign: "left" },
+                      content: [
+                        {
+                          type: "text",
+                          text: `Enter content for ${sub.title}...`,
+                        },
+                      ],
+                    },
+                  ];
+
+            return [
               {
-                type: "paragraph",
-                attrs: { textAlign: "left" },
-                content: [
-                  {
-                    type: "text",
-                    text: `Enter content for ${section.title}...`,
-                  },
-                ],
+                type: "heading",
+                attrs: { level: 5, textAlign: "left" },
+                content: [{ type: "text", text: sub.title }],
               },
+              ...subContent,
             ];
+          }
+        );
 
-      const sectionNode = [
-        {
-          type: "heading",
-          
-          attrs: { level: 4, textAlign: "left" },
-          content: [{ type: "text", text: section.title }],
-        },
-        ...secContent,
-      ];
-
-      const subsectionsNodes = (section.subsections || []).flatMap(
-        (sub, subIdx) => {
-          const subId = sub.id || `${secId}-sub-${subIdx}`;
-          const subContent =
-            sectionsContent[subId]?.content &&
-            sectionsContent[subId].content.length > 0
-              ? sectionsContent[subId].content.map((node) => ({
-                  ...node,
-                  attrs: { ...node.attrs, textAlign: "left" },
-                }))
-              : [
-                  {
-                    type: "paragraph",
-                    attrs: { textAlign: "left" },
-                    content: [
-                      {
-                        type: "text",
-                        text: `Enter content for ${sub.title}...`,
-                      },
-                    ],
-                  },
-                ];
-
-          return [
-            {
-              type: "heading",
-              attrs: { level: 5, textAlign: "left" },
-              content: [{ type: "text", text: sub.title }],
-            },
-            ...subContent,
-          ];
-        }
-      );
-
-      return [...sectionNode, ...subsectionsNodes];
-    }),
+        return [...sectionNode, ...subsectionsNodes];
+      }),
+    };
   };
-};
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Heading.configure({ levels: [1, 2, 3,4,5,6] }),
+      Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
       Link.configure({ openOnClick: false }),
       Highlight,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -224,58 +223,64 @@ const buildFullDoc = (sections, sectionsContent) => {
           const initialContents = {};
           response.sections.forEach((sec, secIdx) => {
             // Section content
-try {
-  if (sec.description) {
-    // Special handling for TITLE PAGE metadata
-    if (
-      sec.title.toUpperCase() === "TITLE PAGE" &&
-      sec.description.includes("metadata:")
-    ) {
-      const metaString = sec.description.split("metadata:")[1].trim();
-      // Convert Python-style dict → JSON
-      const fixedJson = metaString.replace(/'/g, '"');
-      const metadata = JSON.parse(fixedJson);
+            try {
+              if (sec.description) {
+                // Special handling for TITLE PAGE metadata
+                if (
+                  sec.title.toUpperCase() === "TITLE PAGE" &&
+                  sec.description.includes("metadata:")
+                ) {
+                  const metaString = sec.description
+                    .split("metadata:")[1]
+                    .trim();
+                  // Convert Python-style dict → JSON
+                  const fixedJson = metaString.replace(/'/g, '"');
+                  const metadata = JSON.parse(fixedJson);
 
-      // Build formatted metadata block
-      initialContents[sec.id] = {
-        type: "doc",
-        content: [
-          {
-            type: "heading",
-            attrs: { level: 3, textAlign: "center" },
-            content: [{ type: "text", text: "Document Metadata" }],
-          },
-          ...Object.entries(metadata).map(([key, value]) => ({
-            type: "paragraph",
-            attrs: { textAlign: "center" },
-            content: [
-              { type: "text", marks: [{ type: "bold" }], text: `${key}: ` },
-              { type: "text", text: value || "—" },
-            ],
-          })),
-        ],
-      };
-    } else {
-      // Normal JSON case
-      const parsed = JSON.parse(sec.description);
-      initialContents[sec.id] = parsed;
-    }
-  } else {
-    initialContents[sec.id] = { type: "doc", content: [] };
-  }
-} catch {
-  // fallback plain text
-  initialContents[sec.id] = {
-    type: "doc",
-    content: [
-      {
-        type: "paragraph",
-        attrs: { textAlign: "left" },
-        content: [{ type: "text", text: sec.description }],
-      },
-    ],
-  };
-}
+                  // Build formatted metadata block
+                  initialContents[sec.id] = {
+                    type: "doc",
+                    content: [
+                      {
+                        type: "heading",
+                        attrs: { level: 3, textAlign: "center" },
+                        content: [{ type: "text", text: "Document Metadata" }],
+                      },
+                      ...Object.entries(metadata).map(([key, value]) => ({
+                        type: "paragraph",
+                        attrs: { textAlign: "center" },
+                        content: [
+                          {
+                            type: "text",
+                            marks: [{ type: "bold" }],
+                            text: `${key}: `,
+                          },
+                          { type: "text", text: value || "—" },
+                        ],
+                      })),
+                    ],
+                  };
+                } else {
+                  // Normal JSON case
+                  const parsed = JSON.parse(sec.description);
+                  initialContents[sec.id] = parsed;
+                }
+              } else {
+                initialContents[sec.id] = { type: "doc", content: [] };
+              }
+            } catch {
+              // fallback plain text
+              initialContents[sec.id] = {
+                type: "doc",
+                content: [
+                  {
+                    type: "paragraph",
+                    attrs: { textAlign: "left" },
+                    content: [{ type: "text", text: sec.description }],
+                  },
+                ],
+              };
+            }
             // Subsections
             if (Array.isArray(sec.subsections)) {
               sec.subsections.forEach((ss, subIdx) => {
@@ -316,9 +321,7 @@ try {
               buildFullDoc(normalized, initialContents)
             );
           }
-          
         }
-        
       } catch (error) {
         console.error("Error loading document:", error);
       } finally {
@@ -329,62 +332,78 @@ try {
     fetchDoc();
   }, [id]);
 
+  const saveDraft = async () => {
+    if (!editor) return;
+    const json = editor.getJSON();
 
-const saveDraft = async () => {
-  if (!editor) return;
-  const json = editor.getJSON();
+    const updatedSections = sections.map((section, secIdx) => {
+      const secId = section.id || `sec-${secIdx}`;
+      const sectionNodes = [];
+      const subsectionsContent = {};
 
-  const updatedSections = sections.map((section, secIdx) => {
-    const secId = section.id || `sec-${secIdx}`;
-    const sectionNodes = [];
-    const subsectionsContent = {};
+      let inSection = false;
+      let currentTarget = sectionNodes;
+      let currentSubId = null;
 
-    let currentTarget = sectionNodes;
-    let currentSubId = null;
-
-    for (const node of json.content) {
-      if (node.type === "heading" && node.attrs?.level === 4) {
-        if (node.content?.[0]?.text === section.title) {
-          currentTarget = sectionNodes;
-          currentSubId = null;
+      for (const node of json.content) {
+        if (node.type === "heading" && node.attrs?.level === 4) {
+          const headingText = node.content?.[0]?.text;
+          if (headingText === section.title) {
+            inSection = true;
+            currentTarget = sectionNodes;
+            currentSubId = null;
+            continue;
+          } else if (inSection) {
+            // Reached the next section heading; stop collecting for this section
+            break;
+          } else {
+            // Not yet in this section; skip content
+            continue;
+          }
         }
-      } else if (node.type === "heading" && node.attrs?.level === 5) {
-        const subsection = section.subsections.find(
-          (s) => s.title === node.content?.[0]?.text
-        );
-        if (subsection) {
-          currentSubId = subsection.id;
-          subsectionsContent[currentSubId] = [];
-          currentTarget = subsectionsContent[currentSubId];
+
+        if (!inSection) {
+          continue;
         }
-      } else {
+
+        if (node.type === "heading" && node.attrs?.level === 5) {
+          const subsection = section.subsections.find(
+            (s) => s.title === node.content?.[0]?.text
+          );
+          if (subsection) {
+            currentSubId = subsection.id;
+            subsectionsContent[currentSubId] = [];
+            currentTarget = subsectionsContent[currentSubId];
+          }
+          continue;
+        }
+
         currentTarget.push(node);
       }
+
+      return {
+        ...section,
+        description: JSON.stringify({ type: "doc", content: sectionNodes }),
+        subsections: section.subsections.map((sub, idx) => ({
+          ...sub,
+          description: JSON.stringify({
+            type: "doc",
+            content: subsectionsContent[sub.id] || [],
+          }),
+        })),
+      };
+    });
+
+    const updatedDoc = { ...doc, sections: updatedSections };
+
+    try {
+      await updateDocument(doc.id, updatedDoc); // 🔹 API call here
+      alert("Draft saved successfully!");
+    } catch (error) {
+      console.error("Error saving draft:", error);
+      alert("Failed to save draft. Please try again.");
     }
-
-    return {
-      ...section,
-      description: JSON.stringify({ type: "doc", content: sectionNodes }),
-      subsections: section.subsections.map((sub, idx) => ({
-        ...sub,
-        description: JSON.stringify({
-          type: "doc",
-          content: subsectionsContent[sub.id] || [],
-        }),
-      })),
-    };
-  });
-
-  const updatedDoc = { ...doc, sections: updatedSections };
-
-  try {
-    await updateDocument(doc.id, updatedDoc); // 🔹 API call here
-    alert("Draft saved successfully!");
-  } catch (error) {
-    console.error("Error saving draft:", error);
-    alert("Failed to save draft. Please try again.");
-  }
-};
+  };
   const exportContent = () => {
     if (!editor) return;
 
@@ -477,7 +496,7 @@ const saveDraft = async () => {
         <Box
           sx={{
             width: collapsed ? 0 : 250,
-            flexShrink: 0, 
+            flexShrink: 0,
             transition: "width 0.3s ease",
             borderRight: collapsed ? "none" : "1px solid #e0e4e7",
             overflowY: "auto",
@@ -562,10 +581,15 @@ const saveDraft = async () => {
                             setSelectedSectionIndex(i);
                             setSelectedSubsectionId(sub.id);
                             setTimeout(() => {
-                              const headings = document.querySelectorAll(".ProseMirror h4, .ProseMirror h5");
+                              const headings = document.querySelectorAll(
+                                ".ProseMirror h4, .ProseMirror h5"
+                              );
                               headings.forEach((h) => {
                                 if (h.textContent === sub.title) {
-                                  h.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  h.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "center",
+                                  });
                                 }
                               });
                             }, 100);

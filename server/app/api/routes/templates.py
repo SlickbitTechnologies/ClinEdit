@@ -27,18 +27,16 @@ async def upload_csr_template(
         if file_size_mb > MAX_FILE_MB:
             raise HTTPException(status_code=413, detail=f"File too large. Max {MAX_FILE_MB} MB.")
 
-        # call your async Gemini extractor (returns CSRTemplateResponse)
         structured = await GeminiService.extract_template_structure_from_pdf(
             file_bytes=file_bytes,
             filename=file.filename,
             mime_type=file.content_type or ALLOWED_CONTENT_TYPE,
         )
 
-        # persist parsed structure (handle Pydantic v1 vs v2)
         try:
-            template_data = structured.model_dump()   # pydantic v2
+            template_data = structured.model_dump()   
         except Exception:
-            template_data = structured.dict()         # pydantic v1
+            template_data = structured.dict()       
 
         template = TemplateService.save_template(
             uid=user_id,

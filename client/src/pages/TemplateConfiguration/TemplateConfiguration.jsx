@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import {
   Container,
   Typography,
@@ -13,40 +13,53 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Add, Upload } from "@mui/icons-material";
+import { toast } from "react-toastify";
 import "./TemplateConfiguration.css";
 import { uploadCSRTemplate } from "../services/services";
 
+
+
 export default function TemplateConfiguration() {
-  const [documentType, setDocumentType] = React.useState("report");
-  const [uploading, setUploading] = React.useState(false);
-  const [message, setMessage] = React.useState("");
+  const [documentType, setDocumentType] = useState("report");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const fileInputRef = React.useRef(null);
-
-  // Trigger file selection
   const handleButtonClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
 
-  // Handle file upload
-  const handleFileChange = async (event) => {
-    const file = event.target.files[0];
+  const handleUpload = async (file) => {
     if (!file) return;
-
     try {
       setUploading(true);
-      setMessage("");
       const result = await uploadCSRTemplate(file);
-      setMessage("✅ Template uploaded successfully!");
+      toast.success(" Template uploaded successfully!");
       console.log("Upload response:", result);
     } catch (err) {
       console.error("Upload error:", err);
-      setMessage(`❌ ${err.message || "Upload failed"}`);
+      toast.error(` ${err.message || "Upload failed"}`);
     } finally {
       setUploading(false);
     }
+  };
+
+  // File input handler
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    handleUpload(file);
+  };
+
+  // Drag & drop handlers
+  const handleDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    handleUpload(file);
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
   };
 
   return (
@@ -90,6 +103,18 @@ export default function TemplateConfiguration() {
                 onChange={handleFileChange}
               />
 
+              {/* Drag & Drop Zone */}
+              <Box
+                className="drag-drop-zone"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+              >
+                <Typography variant="body2" color="textSecondary">
+                  Drag & drop your CSR template here, or click below to upload
+                </Typography>
+              </Box>
+
+              {/* Upload Button */}
               <Button
                 className="csr-button"
                 variant="contained"
@@ -102,16 +127,6 @@ export default function TemplateConfiguration() {
               >
                 {uploading ? "Uploading..." : "Upload CSR Template"}
               </Button>
-
-              {message && (
-                <Typography
-                  variant="body2"
-                  className="csr-message"
-                  style={{ marginTop: "10px" }}
-                >
-                  {message}
-                </Typography>
-              )}
             </Box>
           </CardContent>
         </Card>

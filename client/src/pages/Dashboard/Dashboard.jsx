@@ -31,6 +31,8 @@ import {
   Divider,
   Tooltip,
 } from "@mui/material";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import {
   Description,
   Add,
@@ -129,14 +131,15 @@ const filteredDocuments = documents.filter((doc) => {
   const handleSubmit = async () => {
     try {
       console.log("Creating document with data:", formData);
-
       const newDoc = await createCSRDocument(formData, handleCloseModal);
-
-      console.log("New document saved:", newDoc);
-      // Optionally update local state to show new doc immediately
-      // setDocuments((prev) => [...prev, newDoc]);
+      await fetchDocs();
+      toast.success("Document created successfully!");
+      if (newDoc && newDoc.id) {
+        navigate(`/dashboard/editor/${newDoc.id}`); 
+      }
     } catch (error) {
       console.error("Failed to create document:", error);
+      toast.error("Failed to create document.");
     }
   };
   const handleEdit = (id) => {
@@ -170,9 +173,10 @@ const confirmDelete = async () => {
     try {
       await deleteDocument(documentToDelete.id); // call backend
       setDocuments(documents.filter((doc) => doc.id !== documentToDelete.id)); // update UI
+      toast.success("Document deleted successfully!");
     } catch (error) {
       console.error("Failed to delete document:", error);
-      // Optionally show a toast/snackbar for error
+      toast.error("Failed to delete document.");
     } finally {
       setDeleteDialogOpen(false);
       setDocumentToDelete(null);
