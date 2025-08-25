@@ -39,6 +39,7 @@ import {
   Link as LinkIcon,
   HMobiledata as HMobiledataIcon,
   Highlight as HighlightIcon,
+  Add as AddIcon,
 } from "@mui/icons-material";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -368,82 +369,80 @@ export default function EditorPage() {
     if (!editor) return;
     const json = editor.getJSON();
 
-    const updatedSections = sections.map((section, secIdx) => {
-      const secId = section.id || `sec-${secIdx}`;
-      const sectionNodes = [];
-      const subsectionsContent = {};
+    // Extract sections and subsections with updated titles from editor content
+    const extractedSections = [];
+    let currentSection = null;
+    let currentSectionIndex = -1;
 
-      let inSection = false;
-      let currentTarget = sectionNodes;
-      let currentSubId = null;
-
-      for (const node of json.content) {
-        if (node.type === "heading" && node.attrs?.level === 4) {
-          const headingText = node.content?.[0]?.text;
-          // Check if this heading matches the section title (with or without numbering)
-          const sectionTitleMatch =
-            headingText === section.title ||
-            headingText === `${getSectionLabel(secIdx)} ${section.title}`;
-
-          if (sectionTitleMatch) {
-            inSection = true;
-            currentTarget = sectionNodes;
-            currentSubId = null;
-            continue;
-          } else if (inSection) {
-            // Reached the next section heading; stop collecting for this section
-            break;
-          } else {
-            // Not yet in this section; skip content
-            continue;
-          }
-        }
-
-        if (!inSection) {
-          continue;
-        }
-
-        if (node.type === "heading" && node.attrs?.level === 5) {
-          // Extract subsection title from heading text (remove numbering)
-          const headingText = node.content?.[0]?.text;
-          const subsectionTitle = headingText.replace(/^\d+\.\d+\s+/, ""); // Remove "2.1 " prefix
-
-          // Find subsection by title (case-insensitive and flexible matching)
-          const subsection = section.subsections.find((s) => {
-            const subTitle = typeof s === "string" ? s : s.title;
-            return (
-              subTitle &&
-              (subTitle === subsectionTitle ||
-                subTitle.toLowerCase() === subsectionTitle.toLowerCase())
-            );
-          });
-
-          if (subsection) {
-            const subId =
-              typeof subsection === "string"
-                ? `${secId}-sub-${section.subsections.indexOf(subsection)}`
-                : subsection.id;
-            currentSubId = subId;
-            subsectionsContent[currentSubId] = [];
-            currentTarget = subsectionsContent[currentSubId];
-          }
-          continue;
-        }
-
-        currentTarget.push(node);
+    for (const node of json.content) {
+      if (node.type === "heading" && node.attrs?.level === 4) {
+        // This is a section heading
+        const headingText = node.content?.[0]?.text || "";
+        const titleWithoutNumber = headingText.replace(/^\d+\.\s*/, ""); // Remove "1. " prefix
+        
+        currentSectionIndex++;
+        currentSection = {
+          ...sections[currentSectionIndex],
+          title: titleWithoutNumber,
+          content: [],
+          subsections: []
+        };
+        extractedSections.push(currentSection);
+        continue;
       }
 
+      if (node.type === "heading" && node.attrs?.level === 5 && currentSection) {
+        // This is a subsection heading
+        const headingText = node.content?.[0]?.text || "";
+        const titleWithoutNumber = headingText.replace(/^\d+\.\d+\s*/, ""); // Remove "1.1 " prefix
+        
+        const subsectionIndex = currentSection.subsections.length;
+        const originalSubsection = sections[currentSectionIndex]?.subsections[subsectionIndex];
+        
+        currentSection.subsections.push({
+          ...originalSubsection,
+          title: titleWithoutNumber,
+          content: []
+        });
+        continue;
+      }
+
+      // Add content to current section or subsection
+      if (currentSection) {
+        if (currentSection.subsections.length > 0) {
+          // Add to current subsection
+          const lastSubsection = currentSection.subsections[currentSection.subsections.length - 1];
+          lastSubsection.content.push(node);
+        } else {
+          // Add to current section
+          currentSection.content.push(node);
+        }
+      }
+    }
+
+    // Build updated sections for database
+    const updatedSections = extractedSections.map((extractedSection, secIdx) => {
+      const originalSection = sections[secIdx];
+      const secId = originalSection?.id || `sec-${secIdx}`;
+
       return {
-        ...section,
-        description: JSON.stringify({ type: "doc", content: sectionNodes }),
-        subsections: section.subsections.map((sub, idx) => {
-          const subId =
-            typeof sub === "string" ? `${secId}-sub-${idx}` : sub.id;
+        ...originalSection,
+        title: extractedSection.title,
+        description: JSON.stringify({ 
+          type: "doc", 
+          content: extractedSection.content 
+        }),
+        subsections: extractedSection.subsections.map((extractedSub, subIdx) => {
+          const originalSub = originalSection?.subsections[subIdx];
+          const subId = originalSub?.id || `${secId}-sub-${subIdx}`;
+          
           return {
-            ...sub,
+            ...originalSub,
+            id: subId,
+            title: extractedSub.title,
             description: JSON.stringify({
               type: "doc",
-              content: subsectionsContent[subId] || [],
+              content: extractedSub.content || [],
             }),
           };
         }),
@@ -637,52 +636,31 @@ export default function EditorPage() {
   };
 
   // Subsection creation function
-  const createSubsection = () => {
+  const createSubsection = (sectionIndex = selectedSectionIndex) => {
     if (!editor) return;
 
-    const currentSection = sections[selectedSectionIndex];
+    const currentSection = sections[sectionIndex];
     if (!currentSection) return;
-
-    // Get current cursor position
-    const { from } = editor.state.selection;
 
     // Create new subsection heading
     const newSubsectionTitle = `New Subsection ${
       currentSection.subsections.length + 1
     }`;
-    const subsectionNumber = `${getSectionLabel(selectedSectionIndex)}.${
+    const subsectionNumber = `${getSectionLabel(sectionIndex)}.${
       currentSection.subsections.length + 1
     }`;
-
-    // Insert the new subsection heading
-    editor.commands.insertContentAt(from, [
-      {
-        type: "heading",
-        attrs: { level: 5, textAlign: "left" },
-        content: [
-          { type: "text", text: `${subsectionNumber} ${newSubsectionTitle}` },
-        ],
-      },
-      {
-        type: "paragraph",
-        attrs: { textAlign: "left" },
-        content: [
-          { type: "text", text: "Enter content for new subsection..." },
-        ],
-      },
-    ]);
 
     // Update local sections state to include the new subsection
     const updatedSections = [...sections];
     const newSubsection = {
-      id: `${currentSection.id || `sec-${selectedSectionIndex}`}-sub-${
+      id: `${currentSection.id || `sec-${sectionIndex}`}-sub-${
         currentSection.subsections.length
       }`,
       title: newSubsectionTitle,
       description: "",
     };
 
-    updatedSections[selectedSectionIndex].subsections.push(newSubsection);
+    updatedSections[sectionIndex].subsections.push(newSubsection);
     setSections(updatedSections);
 
     // Update sectionsContent for the new subsection
@@ -701,6 +679,78 @@ export default function EditorPage() {
         ],
       },
     }));
+
+    // Rebuild and update editor content
+    setTimeout(() => {
+      const newFullDoc = buildFullDoc(updatedSections, {
+        ...sectionsContent,
+        [newSubsection.id]: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: { textAlign: "left" },
+              content: [
+                { type: "text", text: "Enter content for new subsection..." },
+              ],
+            },
+          ],
+        },
+      });
+      editor.commands.setContent(newFullDoc);
+    }, 100);
+  };
+
+  // Section creation function
+  const createSection = () => {
+    if (!editor) return;
+
+    const newSectionTitle = `New Section ${sections.length + 1}`;
+    const newSectionId = `sec-${sections.length}`;
+
+    // Create new section object
+    const newSection = {
+      id: newSectionId,
+      title: newSectionTitle,
+      description: "",
+      subsections: [],
+    };
+
+    // Update sections state
+    const updatedSections = [...sections, newSection];
+    setSections(updatedSections);
+
+    // Update sectionsContent for the new section
+    const newSectionContent = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { textAlign: "left" },
+          content: [
+            { type: "text", text: "Enter content for new section..." },
+          ],
+        },
+      ],
+    };
+
+    setSectionsContent((prev) => ({
+      ...prev,
+      [newSectionId]: newSectionContent,
+    }));
+
+    // Rebuild and update editor content
+    setTimeout(() => {
+      const newFullDoc = buildFullDoc(updatedSections, {
+        ...sectionsContent,
+        [newSectionId]: newSectionContent,
+      });
+      editor.commands.setContent(newFullDoc);
+    }, 100);
+
+    // Select the new section
+    setSelectedSectionIndex(sections.length);
+    setSelectedSubsectionId(null);
   };
 
   const headerTitle =
@@ -949,10 +999,52 @@ export default function EditorPage() {
                           );
                         })
                         .filter(Boolean)}
+                      
+                      {/* Add Subsection Button */}
+                      <Box sx={{ mt: 1, px: 1 }}>
+                        <Button
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            createSubsection(i);
+                          }}
+                          sx={{
+                            textTransform: "none",
+                            fontSize: "0.75rem",
+                            color: "#16a085",
+                            "&:hover": {
+                              bgcolor: "rgba(22,160,133,0.1)",
+                            },
+                          }}
+                        >
+                          Add Subsection
+                        </Button>
+                      </Box>
                     </List>
                   </AccordionDetails>
                 </Accordion>
               ))}
+              
+              {/* Add Section Button */}
+              <Box sx={{ mt: 2, textAlign: "center" }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={createSection}
+                  sx={{
+                    textTransform: "none",
+                    borderColor: "#16a085",
+                    color: "#16a085",
+                    "&:hover": {
+                      borderColor: "#16a085",
+                      bgcolor: "rgba(22,160,133,0.1)",
+                    },
+                  }}
+                >
+                  Add Section
+                </Button>
+              </Box>
             </>
           )}
         </Box>

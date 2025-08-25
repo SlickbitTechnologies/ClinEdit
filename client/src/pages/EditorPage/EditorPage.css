@@ -379,25 +379,23 @@
 .ProseMirror ol {
   margin: 1rem 0;
   padding-left: 2rem;
+  text-align: left !important;
 }
 
 .ProseMirror li {
   margin: 0.5rem 0;
   line-height: 1.6;
+  text-align: left !important;
+  color: #374151;
 }
 
 .ProseMirror ul li {
-  list-style-type: none;
-  position: relative;
+  list-style-type: disc;
+  color: #374151;
 }
 
-.ProseMirror ul li::before {
-  content: '•';
-  color: #16a085;
-  font-weight: bold;
-  position: absolute;
-  left: -1.2rem;
-  font-size: 1.2rem;
+.ProseMirror ul li::marker {
+  color: #374151;
 }
 
 .ProseMirror ol li {
@@ -406,8 +404,8 @@
 }
 
 .ProseMirror ol li::marker {
-  color: #16a085;
-  font-weight: 600;
+  color: #374151;
+  font-weight: normal;
 }
 
 .ProseMirror a {
