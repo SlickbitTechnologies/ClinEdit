@@ -39,8 +39,6 @@ import {
   Link as LinkIcon,
   HMobiledata as HMobiledataIcon,
   Highlight as HighlightIcon,
-  FindReplace as FindReplaceIcon,
-  StrikethroughS as StrikethroughIcon,
 } from "@mui/icons-material";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -57,7 +55,6 @@ import Strike from "@tiptap/extension-strike";
 
 import { getDocumentById, updateDocument } from "../services/services";
 import "./EditorPage.css";
-import { Tag } from "lucide-react";
 
 const initialFallbackSections = [
   {
@@ -262,13 +259,10 @@ export default function EditorPage() {
           });
           setSections(normalized);
           setSelectedSectionIndex(0);
-          // Initialize sectionsContent from response.sections and normalized subsections
           const initialContents = {};
           response.sections.forEach((sec, secIdx) => {
-            // Section content
             try {
               if (sec.description) {
-                // Special handling for TITLE PAGE metadata
                 if (
                   sec.title.toUpperCase() === "TITLE PAGE" &&
                   sec.description.includes("metadata:")
@@ -284,11 +278,6 @@ export default function EditorPage() {
                   initialContents[sec.id] = {
                     type: "doc",
                     content: [
-                      {
-                        type: "heading",
-                        attrs: { level: 3, textAlign: "center" },
-                        content: [{ type: "text", text: "Document Metadata" }],
-                      },
                       ...Object.entries(metadata).map(([key, value]) => ({
                         type: "paragraph",
                         attrs: { textAlign: "center" },
@@ -1261,21 +1250,6 @@ export default function EditorPage() {
                 <HighlightIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Strikethrough">
-              <IconButton
-                onClick={() => editor?.chain().focus().toggleStrike().run()}
-                color={editor?.isActive("strike") ? "primary" : "default"}
-                size="small"
-                sx={{
-                  bgcolor: editor?.isActive("strike")
-                    ? "rgba(22, 160, 133, 0.1)"
-                    : "white",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                <StrikethroughIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
             <Divider orientation="vertical" flexItem />
             <Tooltip title="Bullet List">
               <IconButton
@@ -1346,34 +1320,7 @@ export default function EditorPage() {
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Find and Replace">
-              <IconButton
-                onClick={() => setShowFindReplace(!showFindReplace)}
-                color={showFindReplace ? "primary" : "default"}
-                size="small"
-                sx={{
-                  bgcolor: showFindReplace
-                    ? "rgba(22, 160, 133, 0.1)"
-                    : "white",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                <FindReplaceIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
 
-            <Tooltip title="Create Subsection">
-              <IconButton
-                onClick={createSubsection}
-                size="small"
-                sx={{
-                  bgcolor: "white",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                <Tag fontSize="small" />
-              </IconButton>
-            </Tooltip>
 
             <Divider orientation="vertical" flexItem />
 
