@@ -93,6 +93,8 @@ export default function EditorPage() {
   const getSectionLabel = (sectionIndex) => `${sectionIndex + 1}.`;
   const getSubsectionLabel = (sectionIndex, subsectionIndex) =>
     `${sectionIndex + 1}.${subsectionIndex + 1}`;
+  const getUnderSubsectionLabel = (sectionIndex, subsectionIndex, underSubsectionIndex) =>
+    `${sectionIndex + 1}.${subsectionIndex + 1}.${underSubsectionIndex + 1}`;
   // Build the full document content from sections and sectionsContent
   const buildFullDoc = (sections, sectionsContent) => {
     return {
@@ -171,7 +173,7 @@ export default function EditorPage() {
                     },
                   ];
 
-            return [
+            const subsectionNodes = [
               {
                 type: "heading",
                 attrs: { level: 5, textAlign: "left" },
@@ -187,6 +189,59 @@ export default function EditorPage() {
               },
               ...subContent,
             ];
+
+            // Add under-subsections (12.1.1 level)
+            const underSubsectionsNodes = (sub.underSubsections || []).flatMap(
+              (underSub, underSubIdx) => {
+                const underSubTitle = typeof underSub === "string" ? underSub : underSub.title;
+
+                const underSubId = underSub.id || `${subId}-undersub-${underSubIdx}`;
+
+                const underSubContent =
+                  sectionsContent[underSubId]?.content &&
+                  sectionsContent[underSubId].content.length > 0
+                    ? sectionsContent[underSubId].content.map((node) => ({
+                        ...node,
+                        attrs: { ...node.attrs, textAlign: "left" },
+                      }))
+                    : [
+                        {
+                          type: "paragraph",
+                          attrs: { textAlign: "left" },
+                          content: [
+                            {
+                              type: "text",
+                              text: `Enter content for ${getUnderSubsectionLabel(
+                                secIdx,
+                                section.subsections.indexOf(sub),
+                                underSubIdx
+                              )} ${underSubTitle}...`,
+                            },
+                          ],
+                        },
+                      ];
+
+                return [
+                  {
+                    type: "heading",
+                    attrs: { level: 6, textAlign: "left" },
+                    content: [
+                      {
+                        type: "text",
+                        text: `${getUnderSubsectionLabel(
+                          secIdx,
+                          section.subsections.indexOf(sub),
+                          underSubIdx
+                        )} ${underSubTitle}`,
+                      },
+                    ],
+                  },
+                  ...underSubContent,
+                ];
+              }
+            );
+
+            return [...subsectionNodes, ...underSubsectionsNodes];
           }
         );
 
@@ -232,18 +287,43 @@ export default function EditorPage() {
             let subsections = [];
             if (Array.isArray(s.subsections) && s.subsections.length) {
               subsections = s.subsections.map((ss, idx) => {
-                // Normalize each subsection to have id, title, description
+                // Normalize each subsection to have id, title, description, and underSubsections
+                // Get section index for consistent ID generation
+                const sectionIndex = response.sections.indexOf(s);
+                
                 if (typeof ss === "string") {
                   return {
-                    id: s.id + "-sub" + idx,
+                    id: `sec-${sectionIndex}-sub-${idx}`,
                     title: ss,
                     description: "",
+                    underSubsections: [],
                   };
                 } else {
+                  // Handle under-subsections
+                  let underSubsections = [];
+                  if (Array.isArray(ss.underSubsections) && ss.underSubsections.length) {
+                    underSubsections = ss.underSubsections.map((us, usIdx) => {
+                      if (typeof us === "string") {
+                        return {
+                          id: `sec-${sectionIndex}-sub-${idx}-undersub-${usIdx}`,
+                          title: us,
+                          description: "",
+                        };
+                      } else {
+                        return {
+                          id: `sec-${sectionIndex}-sub-${idx}-undersub-${usIdx}`,
+                          title: us.title || us.name || String(us),
+                          description: us.description || "",
+                        };
+                      }
+                    });
+                  }
+
                   return {
-                    id: ss.id || s.id + "-sub" + idx,
+                    id: `sec-${sectionIndex}-sub-${idx}`,
                     title: ss.title || ss.name || String(ss),
                     description: ss.description || "",
+                    underSubsections,
                   };
                 }
               });
@@ -253,6 +333,7 @@ export default function EditorPage() {
             }
             return {
               ...s,
+              id: `sec-${response.sections.indexOf(s)}`,
               title: s.title || "Untitled",
               description: s.description || "",
               subsections,
@@ -345,6 +426,40 @@ export default function EditorPage() {
                     ],
                   };
                 }
+
+                // Handle under-subsections
+                if (ss.underSubsections && Array.isArray(ss.underSubsections)) {
+                  ss.underSubsections.forEach((us, usIdx) => {
+                    let underSubId, underSubDesc;
+                    if (typeof us === "string") {
+                      underSubId = `${subId}-undersub-${usIdx}`;
+                      underSubDesc = "";
+                    } else {
+                      underSubId = us.id || `${subId}-undersub-${usIdx}`;
+                      underSubDesc = us.description || "";
+                    }
+                    try {
+                      if (underSubDesc) {
+                        const parsed = JSON.parse(underSubDesc);
+                        initialContents[underSubId] = parsed;
+                      } else {
+                        initialContents[underSubId] = { type: "doc", content: [] };
+                      }
+                    } catch {
+                      // fallback if description is plain text
+                      initialContents[underSubId] = {
+                        type: "doc",
+                        content: [
+                          {
+                            type: "paragraph",
+                            attrs: { textAlign: "left" },
+                            content: [{ type: "text", text: underSubDesc }],
+                          },
+                        ],
+                      };
+                    }
+                  });
+                }
               });
             }
           });
@@ -379,40 +494,75 @@ export default function EditorPage() {
         // This is a section heading
         const headingText = node.content?.[0]?.text || "";
         const titleWithoutNumber = headingText.replace(/^\d+\.\s*/, ""); // Remove "1. " prefix
-        
+
         currentSectionIndex++;
         currentSection = {
           ...sections[currentSectionIndex],
           title: titleWithoutNumber,
           content: [],
-          subsections: []
+          subsections: [],
         };
         extractedSections.push(currentSection);
         continue;
       }
 
-      if (node.type === "heading" && node.attrs?.level === 5 && currentSection) {
+      if (
+        node.type === "heading" &&
+        node.attrs?.level === 5 &&
+        currentSection
+      ) {
         // This is a subsection heading
         const headingText = node.content?.[0]?.text || "";
         const titleWithoutNumber = headingText.replace(/^\d+\.\d+\s*/, ""); // Remove "1.1 " prefix
-        
+
         const subsectionIndex = currentSection.subsections.length;
-        const originalSubsection = sections[currentSectionIndex]?.subsections[subsectionIndex];
-        
+        const originalSubsection =
+          sections[currentSectionIndex]?.subsections[subsectionIndex];
+
         currentSection.subsections.push({
           ...originalSubsection,
           title: titleWithoutNumber,
-          content: []
+          content: [],
+          underSubsections: [],
         });
         continue;
       }
 
-      // Add content to current section or subsection
+      if (
+        node.type === "heading" &&
+        node.attrs?.level === 6 &&
+        currentSection &&
+        currentSection.subsections.length > 0
+      ) {
+        // This is an under-subsection heading
+        const headingText = node.content?.[0]?.text || "";
+        const titleWithoutNumber = headingText.replace(/^\d+\.\d+\.\d+\s*/, ""); // Remove "1.1.1 " prefix
+
+        const currentSubsection = currentSection.subsections[currentSection.subsections.length - 1];
+        const underSubsectionIndex = currentSubsection.underSubsections.length;
+        const originalUnderSubsection = 
+          sections[currentSectionIndex]?.subsections[currentSection.subsections.length - 1]?.underSubsections?.[underSubsectionIndex];
+
+        currentSubsection.underSubsections.push({
+          ...originalUnderSubsection,
+          title: titleWithoutNumber,
+          content: [],
+        });
+        continue;
+      }
+
+      // Add content to current section, subsection, or under-subsection
       if (currentSection) {
         if (currentSection.subsections.length > 0) {
-          // Add to current subsection
           const lastSubsection = currentSection.subsections[currentSection.subsections.length - 1];
-          lastSubsection.content.push(node);
+          if (lastSubsection.underSubsections.length > 0) {
+            // Add to current under-subsection
+            const lastUnderSubsection = lastSubsection.underSubsections[lastSubsection.underSubsections.length - 1];
+            lastUnderSubsection.content.push(node);
+          } else {
+            // Add to current subsection
+            lastSubsection.content.push(node);
+          }
         } else {
           // Add to current section
           currentSection.content.push(node);
@@ -421,33 +571,53 @@ export default function EditorPage() {
     }
 
     // Build updated sections for database
-    const updatedSections = extractedSections.map((extractedSection, secIdx) => {
-      const originalSection = sections[secIdx];
-      const secId = originalSection?.id || `sec-${secIdx}`;
+    const updatedSections = extractedSections.map(
+      (extractedSection, secIdx) => {
+        const originalSection = sections[secIdx];
+        const secId = originalSection?.id || `sec-${secIdx}`;
 
-      return {
-        ...originalSection,
-        title: extractedSection.title,
-        description: JSON.stringify({ 
-          type: "doc", 
-          content: extractedSection.content 
-        }),
-        subsections: extractedSection.subsections.map((extractedSub, subIdx) => {
-          const originalSub = originalSection?.subsections[subIdx];
-          const subId = originalSub?.id || `${secId}-sub-${subIdx}`;
-          
-          return {
-            ...originalSub,
-            id: subId,
-            title: extractedSub.title,
-            description: JSON.stringify({
-              type: "doc",
-              content: extractedSub.content || [],
-            }),
-          };
-        }),
-      };
-    });
+        return {
+          ...originalSection,
+          title: extractedSection.title,
+          description: JSON.stringify({
+            type: "doc",
+            content: extractedSection.content,
+          }),
+          subsections: extractedSection.subsections.map(
+            (extractedSub, subIdx) => {
+              const originalSub = originalSection?.subsections[subIdx];
+              const subId = originalSub?.id || `${secId}-sub-${subIdx}`;
+
+              return {
+                ...originalSub,
+                id: subId,
+                title: extractedSub.title,
+                description: JSON.stringify({
+                  type: "doc",
+                  content: extractedSub.content || [],
+                }),
+                underSubsections: (extractedSub.underSubsections || []).map(
+                  (extractedUnderSub, underSubIdx) => {
+                    const originalUnderSub = originalSub?.underSubsections?.[underSubIdx];
+                    const underSubId = originalUnderSub?.id || `${subId}-undersub-${underSubIdx}`;
+
+                    return {
+                      ...originalUnderSub,
+                      id: underSubId,
+                      title: extractedUnderSub.title,
+                      description: JSON.stringify({
+                        type: "doc",
+                        content: extractedUnderSub.content || [],
+                      }),
+                    };
+                  }
+                ),
+              };
+            }
+          ),
+        };
+      }
+    );
 
     const updatedDoc = { ...doc, sections: updatedSections };
 
@@ -466,6 +636,15 @@ export default function EditorPage() {
             const subId =
               typeof sub === "string" ? `${secId}-sub-${idx}` : sub.id;
             updated[subId] = JSON.parse(sub.description);
+
+            // Handle under-subsections
+            if (sub.underSubsections) {
+              sub.underSubsections.forEach((underSub, underIdx) => {
+                const underSubId = 
+                  typeof underSub === "string" ? `${subId}-undersub-${underIdx}` : underSub.id;
+                updated[underSubId] = JSON.parse(underSub.description);
+              });
+            }
           });
         });
         return updated;
@@ -653,11 +832,10 @@ export default function EditorPage() {
     // Update local sections state to include the new subsection
     const updatedSections = [...sections];
     const newSubsection = {
-      id: `${currentSection.id || `sec-${sectionIndex}`}-sub-${
-        currentSection.subsections.length
-      }`,
+      id: `sec-${sectionIndex}-sub-${currentSection.subsections.length}`,
       title: newSubsectionTitle,
       description: "",
+      underSubsections: [],
     };
 
     updatedSections[sectionIndex].subsections.push(newSubsection);
@@ -701,6 +879,72 @@ export default function EditorPage() {
     }, 100);
   };
 
+  // Under-subsection creation function
+  const createUnderSubsection = (sectionIndex, subsectionIndex) => {
+    const updatedSections = [...sections];
+    const currentSection = updatedSections[sectionIndex];
+    const currentSubsection = currentSection.subsections[subsectionIndex];
+
+    // Limit to maximum 2 levels of subsections
+    if (!currentSubsection.underSubsections) {
+      currentSubsection.underSubsections = [];
+    }
+
+    // Check if we've reached the limit (2 under-subsections max)
+    if (currentSubsection.underSubsections.length >= 2) {
+      toast.warning("Maximum 2 under-subsections allowed per subsection");
+      return;
+    }
+
+    const newUnderSubsectionTitle = `New Under-subsection ${currentSubsection.underSubsections.length + 1}`;
+
+    const newUnderSubsection = {
+      id: `sec-${sectionIndex}-sub-${subsectionIndex}-undersub-${currentSubsection.underSubsections.length}`,
+      title: newUnderSubsectionTitle,
+      description: "",
+    };
+
+    currentSubsection.underSubsections.push(newUnderSubsection);
+    setSections(updatedSections);
+
+    // Update sectionsContent for the new under-subsection
+    setSectionsContent((prev) => ({
+      ...prev,
+      [newUnderSubsection.id]: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { textAlign: "left" },
+            content: [
+              { type: "text", text: "Enter content for new under-subsection..." },
+            ],
+          },
+        ],
+      },
+    }));
+
+    // Rebuild and update editor content
+    setTimeout(() => {
+      const newFullDoc = buildFullDoc(updatedSections, {
+        ...sectionsContent,
+        [newUnderSubsection.id]: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: { textAlign: "left" },
+              content: [
+                { type: "text", text: "Enter content for new under-subsection..." },
+              ],
+            },
+          ],
+        },
+      });
+      editor.commands.setContent(newFullDoc);
+    }, 100);
+  };
+
   // Section creation function
   const createSection = () => {
     if (!editor) return;
@@ -727,9 +971,7 @@ export default function EditorPage() {
         {
           type: "paragraph",
           attrs: { textAlign: "left" },
-          content: [
-            { type: "text", text: "Enter content for new section..." },
-          ],
+          content: [{ type: "text", text: "Enter content for new section..." }],
         },
       ],
     };
@@ -770,8 +1012,8 @@ export default function EditorPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          px: 3,
-          py: 2,
+          px: 1,
+          py: 1,
           borderBottom: "1px solid #e0e4e7",
           bgcolor: "background.paper",
         }}
@@ -779,14 +1021,14 @@ export default function EditorPage() {
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: "#2c3e50" }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: "#2c3e50" }}>
               {headerTitle}
             </Typography>
-            {doc?.created_at && (
+            {/* {doc?.created_at && (
               <Typography variant="caption" color="text.secondary">
                 Created: {new Date(doc.created_at).toLocaleString()}
               </Typography>
-            )}
+            )} */}
           </Box>
         </Box>
 
@@ -802,7 +1044,7 @@ export default function EditorPage() {
               fontWeight: 600,
             }}
           >
-            Save Draft
+            Save 
           </Button>
           <Button
             className="start-trial-btn"
@@ -928,78 +1170,143 @@ export default function EditorPage() {
                             return null;
                           }
                           return (
-                            <ListItem
-                              key={
-                                sub.id ||
-                                `${section.id || `sec-${i}`}-sub-${originalIdx}`
-                              }
-                              button
-                              onClick={() => {
-                                if (!openPanels[i]) togglePanel(i);
-                                setSelectedSectionIndex(i);
-                                setSelectedSubsectionId(sub.id);
-                                setTimeout(() => {
-                                  // Find the subsection heading by looking for the specific subsection label
-                                  const subsectionLabel = `${getSubsectionLabel(
-                                    i,
-                                    originalIdx
-                                  )} ${subTitle}`;
-                                  const headings = document.querySelectorAll(
-                                    ".ProseMirror h4, .ProseMirror h5"
-                                  );
-                                  let found = false;
-                                  headings.forEach((h) => {
-                                    if (h.textContent === subsectionLabel) {
-                                      h.scrollIntoView({
-                                        behavior: "smooth",
-                                        block: "center",
-                                      });
-                                      found = true;
-                                    }
-                                  });
-
-                                  // Fallback: if exact match not found, try to find by subsection title
-                                  if (!found) {
+                            <Box key={sub.id || `${section.id || `sec-${i}`}-sub-${originalIdx}`}>
+                              <ListItem
+                                button
+                                onClick={() => {
+                                  if (!openPanels[i]) togglePanel(i);
+                                  setSelectedSectionIndex(i);
+                                  setSelectedSubsectionId(sub.id);
+                                  setTimeout(() => {
+                                    // Find the subsection heading by looking for the specific subsection label
+                                    const subsectionLabel = `${getSubsectionLabel(
+                                      i,
+                                      originalIdx
+                                    )} ${subTitle}`;
+                                    const headings = document.querySelectorAll(
+                                      ".ProseMirror h4, .ProseMirror h5"
+                                    );
+                                    let found = false;
                                     headings.forEach((h) => {
-                                      if (
-                                        h.textContent.includes(subTitle) &&
-                                        h.textContent.includes(
-                                          `${getSubsectionLabel(
-                                            i,
-                                            originalIdx
-                                          )}`
-                                        )
-                                      ) {
+                                      if (h.textContent === subsectionLabel) {
                                         h.scrollIntoView({
                                           behavior: "smooth",
                                           block: "center",
                                         });
+                                        found = true;
                                       }
                                     });
-                                  }
-                                }, 100);
-                              }}
-                              sx={{
-                                borderRadius: 1,
-                                mb: 0.5,
-                                "&:hover": { bgcolor: "rgba(22,160,133,0.1)" },
-                              }}
-                            >
-                              <ListItemText
-                                primary={`${getSubsectionLabel(
-                                  i,
-                                  originalIdx
-                                )} ${subTitle}`}
-                                primaryTypographyProps={{
-                                  fontSize: "0.85rem",
-                                  fontWeight: 500,
+
+                                    // Fallback: if exact match not found, try to find by subsection title
+                                    if (!found) {
+                                      headings.forEach((h) => {
+                                        if (
+                                          h.textContent.includes(subTitle) &&
+                                          h.textContent.includes(
+                                            `${getSubsectionLabel(
+                                              i,
+                                              originalIdx
+                                            )}`
+                                          )
+                                        ) {
+                                          h.scrollIntoView({
+                                            behavior: "smooth",
+                                            block: "center",
+                                          });
+                                        }
+                                      });
+                                    }
+                                  }, 100);
                                 }}
-                              />
-                            </ListItem>
+                                sx={{
+                                  borderRadius: 1,
+                                  mb: 0.5,
+                                  "&:hover": { bgcolor: "rgba(22,160,133,0.1)" },
+                                }}
+                              >
+                                <ListItemText
+                                  primary={`${getSubsectionLabel(
+                                    i,
+                                    originalIdx
+                                  )} ${subTitle}`}
+                                  primaryTypographyProps={{
+                                    fontSize: "0.85rem",
+                                    fontWeight: 500,
+                                  }}
+                                />
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    createUnderSubsection(i, originalIdx);
+                                  }}
+                                  sx={{
+                                    ml: 1,
+                                    color: "#16a085",
+                                    "&:hover": { bgcolor: "rgba(22,160,133,0.1)" },
+                                  }}
+                                >
+                                  <AddIcon fontSize="small" />
+                                </IconButton>
+                              </ListItem>
+
+                              {/* Under-subsections */}
+                              {sub.underSubsections && sub.underSubsections.map((underSub, underSubIdx) => {
+                                const underSubTitle = typeof underSub === "string" ? underSub : underSub.title;
+                                return (
+                                  <ListItem
+                                    key={underSub.id || `${sub.id}-undersub-${underSubIdx}`}
+                                    button
+                                    onClick={() => {
+                                      if (!openPanels[i]) togglePanel(i);
+                                      setSelectedSectionIndex(i);
+                                      setSelectedSubsectionId(underSub.id);
+                                      setTimeout(() => {
+                                        const underSubsectionLabel = `${getUnderSubsectionLabel(
+                                          i,
+                                          originalIdx,
+                                          underSubIdx
+                                        )} ${underSubTitle}`;
+                                        const headings = document.querySelectorAll(
+                                          ".ProseMirror h6"
+                                        );
+                                        headings.forEach((h) => {
+                                          if (h.textContent === underSubsectionLabel) {
+                                            h.scrollIntoView({
+                                              behavior: "smooth",
+                                              block: "center",
+                                            });
+                                          }
+                                        });
+                                      }, 100);
+                                    }}
+                                    sx={{
+                                      borderRadius: 1,
+                                      mb: 0.5,
+                                      ml: 3,
+                                      "&:hover": { bgcolor: "rgba(22,160,133,0.1)" },
+                                    }}
+                                  >
+                                    <ListItemText
+                                      primary={`${getUnderSubsectionLabel(
+                                        i,
+                                        originalIdx,
+                                        underSubIdx
+                                      )} ${underSubTitle}`}
+                                      primaryTypographyProps={{
+                                        fontSize: "0.8rem",
+                                        fontWeight: 400,
+                                        color: "#666",
+                                      }}
+                                    />
+                                  </ListItem>
+                                );
+                              })}
+                            </Box>
                           );
                         })
                         .filter(Boolean)}
-                      
+
                       {/* Add Subsection Button */}
                       <Box sx={{ mt: 1, px: 1 }}>
                         <Button
@@ -1025,7 +1332,7 @@ export default function EditorPage() {
                   </AccordionDetails>
                 </Accordion>
               ))}
-              
+
               {/* Add Section Button */}
               <Box sx={{ mt: 2, textAlign: "center" }}>
                 <Button
@@ -1077,6 +1384,7 @@ export default function EditorPage() {
             color="transparent"
             elevation={0}
             sx={{
+              padding:"0",
               borderBottom: "1px solid #e0e4e7",
               background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
             }}
@@ -1084,8 +1392,8 @@ export default function EditorPage() {
             <Toolbar sx={{ justifyContent: "space-between", py: 2 }}>
               <Box>
                 <Typography
-                  variant="h5"
-                  sx={{ fontWeight: 700, color: "#2c3e50" }}
+                  variant="h6"
+                  sx={{ fontWeight: 500, color: "#2c3e50" }}
                 >
                   {sections[selectedSectionIndex].title}
                 </Typography>
@@ -1411,8 +1719,6 @@ export default function EditorPage() {
                 <LinkIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-
-
 
             <Divider orientation="vertical" flexItem />
 
