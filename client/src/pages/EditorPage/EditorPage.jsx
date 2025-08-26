@@ -41,6 +41,7 @@ import Strike from "@tiptap/extension-strike";
 
 import { getDocumentById, updateDocument } from "../services/services";
 import EditorToolbar from "../../components/toolbar/EditorToolbar";
+import AIDraftingPanel from "../../components/AIDrafting/AIDraftingPanel";
 import "./EditorPage.css";
 
 const initialFallbackSections = [
@@ -66,6 +67,7 @@ export default function EditorPage() {
   const { id } = useParams();
   const [sections, setSections] = useState(initialFallbackSections);
   const [sectionsContent, setSectionsContent] = useState({});
+  const [showAIDrafting, setShowAIDrafting] = useState(false);
 
   const togglePanel = (i) => {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
@@ -831,6 +833,38 @@ export default function EditorPage() {
   };
 
   // Subsection creation function
+  // Handle AI-generated content
+  const handleAIContentGenerated = (generatedContent) => {
+    const updatedSectionsContent = { ...sectionsContent };
+    
+    // Apply AI-generated content to sections
+    Object.entries(generatedContent).forEach(([sectionId, content]) => {
+      if (content && typeof content === 'object' && content.type === 'doc') {
+        updatedSectionsContent[sectionId] = content;
+      } else if (typeof content === 'string') {
+        // Convert string content to TipTap format
+        updatedSectionsContent[sectionId] = {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: { textAlign: "left" },
+              content: [{ type: "text", text: content }],
+            },
+          ],
+        };
+      }
+    });
+
+    setSectionsContent(updatedSectionsContent);
+    
+    // Update editor with new content
+    if (editor) {
+      const newFullDoc = buildFullDoc(sections, updatedSectionsContent);
+      editor.commands.setContent(newFullDoc);
+    }
+  };
+
   const createSubsection = (sectionIndex = selectedSectionIndex) => {
     if (!editor) return;
 
@@ -1441,28 +1475,38 @@ export default function EditorPage() {
               <Box sx={{ display: "flex", gap: 1.5 }}>
                 <Button
                   variant="outlined"
-                  onClick={exportContent}
+                  onClick={() => setShowAIDrafting(!showAIDrafting)}
                   sx={{
                     borderRadius: 2,
                     textTransform: "none",
                     fontWeight: 600,
-                    borderColor: "#9b59b6",
-                    color: "#9b59b6",
+                    borderColor: "#16a085",
+                    color: "#16a085",
                     "&:hover": {
-                      borderColor: "#9b59b6",
-                      bgcolor: "rgba(155, 89, 182, 0.1)",
+                      borderColor: "#16a085",
+                      bgcolor: "rgba(22, 160, 133, 0.1)",
                     },
                   }}
                 >
-                  AI Suggestions
+                  {showAIDrafting ? "Hide AI Drafting" : "AI Drafting"}
                 </Button>
               </Box>
             </Toolbar>
           </AppBar>
 
-
           {/* Editor Toolbar */}
           <EditorToolbar editor={editor} />
+
+          {/* AI Drafting Panel */}
+          {showAIDrafting && (
+            <Box sx={{ borderBottom: "1px solid #e0e4e7" }}>
+              <AIDraftingPanel
+                sections={sections}
+                onContentGenerated={handleAIContentGenerated}
+                documentId={id}
+              />
+            </Box>
+          )}
 
           {/* Editor Content */}
           <Box

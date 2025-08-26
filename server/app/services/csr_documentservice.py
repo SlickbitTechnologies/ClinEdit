@@ -1,6 +1,6 @@
 from core.firestore import db
 from datetime import datetime
-
+import json
 class DocumentService:
     COLLECTION = "csr_documents"
 
@@ -120,3 +120,96 @@ class DocumentService:
 
         doc_ref.set(updated_doc)
         return updated_doc
+
+
+    @staticmethod
+    def _update_rich_text(existing: str, content: str, mode: str) -> str:
+        """Update a rich text JSON string with new content."""
+        try:
+            existing_json = json.loads(existing) if existing else {"type": "doc", "content": []}
+        except Exception:
+            # fallback to plain text behavior if it's not valid JSON
+            if mode == "replace":
+                return content
+            elif mode == "prepend":
+                return f"{content}\n\n{existing}".strip()
+            else:
+                return f"{existing}\n\n{content}".strip()
+
+        new_paragraph = {
+            "type": "paragraph",
+            "attrs": {"textAlign": "left"},
+            "content": [{"type": "text", "text": content}]
+        }
+
+        if mode == "replace":
+            existing_json["content"] = [new_paragraph]
+        elif mode == "prepend":
+            existing_json["content"].insert(0, new_paragraph)
+        else:  # append
+            existing_json["content"].append(new_paragraph)
+
+        return json.dumps(existing_json)
+
+    @staticmethod
+    def apply_extraction(uid: str, document_id: str, accepted: list):
+        """
+        Apply accepted AI suggestions to the document.
+        Each item: { section_id, subsection_id, subsubsection_id, content, mode: 'prepend'|'append'|'replace' }
+        """
+        doc_ref = (
+            db.collection("users")
+            .document(uid)
+            .collection(DocumentService.COLLECTION)
+            .document(document_id)
+        )
+        snap = doc_ref.get()
+        if not snap.exists:
+            return None
+        doc = snap.to_dict()
+
+        sections = doc.get("sections", [])
+        section_map = {s.get("id"): s for s in sections}
+
+        for item in accepted or []:
+            sec_id = item.get("section_id")
+            sub_id = item.get("subsection_id")
+            subsub_id = item.get("subsubsection_id")
+            content = item.get("content", "")
+            mode = (item.get("mode") or "append").lower()
+
+            target = section_map.get(sec_id)
+            if not target:
+                continue
+
+            if sub_id:
+                subs = target.get("subsections", [])
+                sub_map = {ss.get("id"): ss for ss in subs}
+                sub = sub_map.get(sub_id)
+                if sub is None:
+                    continue
+                
+                if subsub_id:
+                    # Handle subsubsection level
+                    subsubs = sub.get("subsubsections", [])
+                    subsub_map = {sss.get("id"): sss for sss in subsubs}
+                    subsub = subsub_map.get(subsub_id)
+                    if subsub is None:
+                        continue
+                    existing = subsub.get("description") or ""
+                    subsub["description"] = DocumentService._update_rich_text(existing, content, mode)
+                else:
+                    # Handle subsection level
+                    existing = sub.get("description") or ""
+                    sub["description"] = DocumentService._update_rich_text(existing, content, mode)
+            else:
+                # Handle section level
+                existing = target.get("description") or ""
+                target["description"] = DocumentService._update_rich_text(existing, content, mode)
+
+        doc["sections"] = list(section_map.values())
+        doc["updated_at"] = datetime.utcnow().isoformat()
+        print(doc)  # Optional: for debugging
+
+        doc_ref.set(doc)
+        return doc

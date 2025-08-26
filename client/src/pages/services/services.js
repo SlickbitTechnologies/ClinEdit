@@ -165,3 +165,45 @@ export const updateDocument = async (documentId, updatedDoc) => {
     throw error;
   }
 };
+
+// AI-assisted extraction: upload PDF and get suggestions mapped to sections
+export const ingestPdfForDocument = async (documentId, file) => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  const idToken = await user.getIdToken();
+
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+
+  const response = await axios.post(
+    `${API_BASE}/api/documents/${documentId}/ingest-pdf`,
+    formData,
+    {
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "multipart/form-data",
+      },
+      timeout: 120000,
+    }
+  );
+  return response.data; // { document_id, suggestions: [...] }
+};
+
+// Apply accepted AI suggestions to the document
+export const applyExtractionToDocument = async (documentId, accepted) => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  const idToken = await user.getIdToken();
+
+  const response = await axios.post(
+    `${API_BASE}/api/documents/${documentId}/apply-extraction`,
+    { accepted },
+    {
+      headers: { Authorization: `Bearer ${idToken}` },
+      timeout: 60000,
+    }
+  );
+  return response.data; // { message, document }
+};
