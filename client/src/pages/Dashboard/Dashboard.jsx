@@ -46,6 +46,7 @@ import {
   VisibilityOutlined,
   EditOutlined,
 } from "@mui/icons-material";
+import { getAuth } from "firebase/auth";
 import "./DashboardPage.css";
 import { createCSRDocument,getDocuments,deleteDocument } from "../services/services";
 import { Bold } from "lucide-react";
@@ -64,10 +65,7 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = useState("grid");
   const [openModal, setOpenModal] = useState(false);
   const [formData, setFormData] = useState({
-    studyId: "",
     documentDate: "",
-    documentType: "",
-    version: "",
     author: "",
     confidentiality: "",
     protocolNumber: "",
@@ -105,17 +103,25 @@ export default function DashboardPage() {
   };
 
   const handleCreateDocument = () => {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    setFormData({
+      documentDate: new Date().toISOString().split("T")[0],
+      author: currentUser?.displayName || currentUser?.email || "Unknown User",
+      confidentiality: "",
+      protocolNumber: "",
+      studyTitle: "",
+      indication: "",
+      phase: "",
+      sponsorName: "",
+      sponsorCode: "",
+    });
     setOpenModal(true);
   };
 
   const handleCloseModal = () => {
     setOpenModal(false);
     setFormData({
-      studyId: "",
-      documentDate: "",
-      documentType: "",
-      version: "",
-      author: "",
       confidentiality: "",
       protocolNumber: "",
       studyTitle: "",
@@ -273,15 +279,11 @@ export default function DashboardPage() {
                     <Typography variant="h6" className="doc-title">
                       {doc.meta_data?.metadata?.studyTitle}
                     </Typography>
-                    <Typography variant="body2" className="doc-type">
-                      {doc.meta_data?.metadata?.documentType}
-                    </Typography>
+    
                     <Box className="doc-meta">
                       <Box className="meta-item">
                         <CalendarToday fontSize="small" />
-                        <Typography variant="caption">
-                          {doc.meta_data?.metadata?.documentDate}
-                        </Typography>
+           
                       </Box>
                       <Box className="meta-item">
                         <Person fontSize="small" />
@@ -352,8 +354,7 @@ export default function DashboardPage() {
                       }
                       secondary={
                         <Typography variant="body2" color="textSecondary">
-                          {doc.meta_data?.metadata?.documentType} •{" "}
-                          {doc.meta_data?.metadata?.documentDate} •{" "}
+                 
                           {doc.meta_data?.metadata?.author}
                         </Typography>
                       }
@@ -426,63 +427,6 @@ export default function DashboardPage() {
 
           <DialogContent className="modal-content">
             <div className="form-grid">
-              <div className="form-item">
-                <TextField
-                  fullWidth
-                  label="Study ID"
-                  value={formData.studyId}
-                  onChange={handleInputChange("studyId")}
-                  variant="outlined"
-                />
-              </div>
-              <div className="form-item">
-                <TextField
-                  fullWidth
-                  label="Document Date"
-                  type="date"
-                  value={formData.documentDate}
-                  onChange={handleInputChange("documentDate")}
-                  variant="outlined"
-                  InputLabelProps={{ shrink: true }}
-                />
-              </div>
-              {/* <div className="form-item">
-                <FormControl fullWidth variant="outlined">
-                  <InputLabel>Document Type</InputLabel>
-                  <Select
-                    value={formData.documentType}
-                    onChange={handleInputChange("documentType")}
-                    label="Document Type"
-                  >
-                    <MenuItem value="Protocol">Protocol</MenuItem>
-                    <MenuItem value="Clinical Study Report">
-                      Clinical Study Report
-                    </MenuItem>
-                    <MenuItem value="Brochure">Investigator Brochure</MenuItem>
-                    <MenuItem value="SAP">Statistical Analysis Plan</MenuItem>
-                    <MenuItem value="Monitoring">Monitoring Report</MenuItem>
-                    <MenuItem value="Safety">Safety Report</MenuItem>
-                  </Select>
-                </FormControl>
-              </div> */}
-              <div className="form-item">
-                <TextField
-                  fullWidth
-                  label="Version"
-                  value={formData.version}
-                  onChange={handleInputChange("version")}
-                  variant="outlined"
-                />
-              </div>
-              <div className="form-item">
-                <TextField
-                  fullWidth
-                  label="Author"
-                  value={formData.author}
-                  onChange={handleInputChange("author")}
-                  variant="outlined"
-                />
-              </div>
               <div className="form-item">
                 <FormControl fullWidth variant="outlined">
                   <InputLabel>Confidentiality</InputLabel>

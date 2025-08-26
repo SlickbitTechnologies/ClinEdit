@@ -22,7 +22,7 @@ class DocumentService:
 
         for section in sections:
             if section.get("title", "").upper() == "TITLE PAGE":
-                description = section.get("description", "")
+                description = section.get("description") or ""
                 meta_text = "\n".join([f"{k}: {v}" for k, v in metadata.items()])
                 section["description"] = f"{description}\n\n{meta_text}".strip()
                 break

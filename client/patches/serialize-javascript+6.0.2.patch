@@ -1,0 +1,14 @@
+diff --git a/node_modules/serialize-javascript/index.js b/node_modules/serialize-javascript/index.js
+index 156f8f9..1a3241d 100644
+--- a/node_modules/serialize-javascript/index.js
++++ b/node_modules/serialize-javascript/index.js
+@@ -6,7 +6,8 @@ See the accompanying LICENSE file for terms.
+ 
+ 'use strict';
+ 
+-var randomBytes = require('randombytes');
++var crypto = require('crypto');
++var randomBytes = crypto.randomBytes || require('crypto-browserify').randomBytes;
+ 
+ // Generate an internal UID to make the regexp pattern harder to guess.
+ var UID_LENGTH          = 16;
