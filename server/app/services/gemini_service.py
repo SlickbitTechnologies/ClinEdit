@@ -137,7 +137,6 @@ class GeminiService:
 
         file_part = Part.from_bytes(data=file_bytes, mime_type=mime or "application/pdf")
         target_document_json = {"sections": document_sections or []}
-        print("CSR structure:", document_sections)
 
         # --- System prompt ---
         system_prompt = """
@@ -172,13 +171,11 @@ class GeminiService:
             ),
         )
 
-        print("Raw response:", response.text)
 
         # --- Strict parse via response_schema ---
         try:
             parsed = ExtractionResponse.model_validate_json(response.text)
         except Exception as e:
-            print("Validation error:", e)
             raise HTTPException(
                 status_code=500,
                 detail=f"Invalid AI extraction response. Raw: {getattr(response, 'text', str(response))}",

@@ -88,7 +88,6 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
         });
       }, 500);
 
-      // Process all uploaded PDF files
       const allSuggestions = [];
       const totalFiles = uploadedFiles.length;
       
@@ -97,7 +96,6 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
         try {
           const result = await ingestPdfForDocument(documentId, file);
           if (result?.suggestions) {
-            // Add file identifier to each suggestion for tracking
             const suggestionsWithSource = result.suggestions.map(s => ({
               ...s,
               source_file: file.name,
@@ -121,7 +119,6 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
 
       setSuggestions(allSuggestions);
       
-      // Build a simple map for preview by section id
       const mapped = {};
       allSuggestions.forEach(s => {
         const key = s.subsection_id || s.section_id;
@@ -143,16 +140,28 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
 
   const acceptGeneratedContent = () => {
     if (!suggestions?.length) return;
-    // Default apply mode: append
-    const accepted = suggestions.map(s => ({
-      section_id: s.section_id,  // Single ID representing the most specific level
-      content: s.content || "",
-      mode: "append",
-    }));
+
+    const accepted = suggestions.map(s => {
+      const targetId = s.subsubsection_id || s.subsection_id || s.section_id;
+      return {
+        section_id: targetId,
+        content: s.content || "",
+        mode: "append",
+      };
+    });
+
+    const contentMap = {};
+    accepted.forEach(item => {
+      if (!item.section_id) return;
+      if (!contentMap[item.section_id]) contentMap[item.section_id] = "";
+      const sep = contentMap[item.section_id] ? "\n\n" : "";
+      contentMap[item.section_id] = contentMap[item.section_id] + sep + (item.content || "");
+    });
+
     applyExtractionToDocument(documentId, accepted)
       .then(() => {
         if (onContentGenerated) {
-          onContentGenerated(accepted);
+          onContentGenerated(contentMap);
         }
         setShowPreview(false);
         setGeneratedContent(null);
@@ -178,7 +187,6 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
         AI Drafting Assistant
       </Typography>
 
-      {/* File Upload Area */}
       <Paper
         sx={{
           p: 3,
@@ -301,20 +309,16 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
               </Alert>
               
               {suggestions.map((s, idx) => {
-                // Parse the section_id to determine the level and build title
                 const sectionId = s.section_id;
                 const parts = sectionId.split(".");
                 let title = s.title || sectionId;
                 
-                // Build hierarchical title based on ID format
                 if (parts.length === 2) {
-                  // Subsection level (e.g., "12.1")
                   const section = sections.find(sec => sec.id === parts[0]);
                   if (section) {
                     title = `${section.title || parts[0]} → ${s.title || sectionId}`;
                   }
                 } else if (parts.length === 3) {
-                  // Subsubsection level (e.g., "12.1.1")
                   const section = sections.find(sec => sec.id === parts[0]);
                   if (section) {
                     const subsection = section.subsections?.find(sub => sub.id === `${parts[0]}.${parts[1]}`);

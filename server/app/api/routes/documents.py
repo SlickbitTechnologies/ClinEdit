@@ -83,7 +83,6 @@ async def ingest_pdf_for_document(
     request: dict = Depends(verify_firebase_token),
     file: UploadFile = File(...),
 ):
-    print(file)
     """
     Accept a PDF, send to Gemini along with the document's current sections,
     and return AI suggestions mapped to section/subsection IDs.
