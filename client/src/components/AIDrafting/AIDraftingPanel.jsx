@@ -87,22 +87,50 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
           return prev + 10;
         });
       }, 500);
-      // For now we only support a single PDF per run; use first file
-      const file = uploadedFiles[0];
-      const result = await ingestPdfForDocument(documentId, file);
+
+      // Process all uploaded PDF files
+      const allSuggestions = [];
+      const totalFiles = uploadedFiles.length;
+      
+      for (let i = 0; i < totalFiles; i++) {
+        const file = uploadedFiles[i];
+        try {
+          const result = await ingestPdfForDocument(documentId, file);
+          if (result?.suggestions) {
+            // Add file identifier to each suggestion for tracking
+            const suggestionsWithSource = result.suggestions.map(s => ({
+              ...s,
+              source_file: file.name,
+              file_index: i
+            }));
+            allSuggestions.push(...suggestionsWithSource);
+          }
+        } catch (fileError) {
+          console.error(`Error processing file ${file.name}:`, fileError);
+          toast.warning(`Failed to process ${file.name}, continuing with other files...`);
+        }
+      }
+
       clearInterval(progressInterval);
       setProcessingProgress(100);
-      setSuggestions(result?.suggestions || []);
+      
+      if (allSuggestions.length === 0) {
+        toast.error("No content could be extracted from the uploaded files");
+        return;
+      }
+
+      setSuggestions(allSuggestions);
+      
       // Build a simple map for preview by section id
       const mapped = {};
-      (result?.suggestions || []).forEach(s => {
+      allSuggestions.forEach(s => {
         const key = s.subsection_id || s.section_id;
         if (!mapped[key]) mapped[key] = [];
         mapped[key].push(s);
       });
       setGeneratedContent(mapped);
       setShowPreview(true);
-      toast.success("AI drafting completed successfully!");
+      toast.success(`AI drafting completed successfully! Processed ${totalFiles} file(s) with ${allSuggestions.length} suggestions.`);
 
     } catch (error) {
       console.error('AI processing error:', error);
@@ -117,9 +145,7 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
     if (!suggestions?.length) return;
     // Default apply mode: append
     const accepted = suggestions.map(s => ({
-      section_id: s.section_id,
-      subsection_id: s.subsection_id || null,
-      subsubsection_id: s.subsubsection_id || null,
+      section_id: s.section_id,  // Single ID representing the most specific level
       content: s.content || "",
       mode: "append",
     }));
@@ -275,20 +301,25 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
               </Alert>
               
               {suggestions.map((s, idx) => {
-                const sec = sections.find(ss => ss.id === s.section_id);
-                let title = s.title || sec?.title || s.section_id;
+                // Parse the section_id to determine the level and build title
+                const sectionId = s.section_id;
+                const parts = sectionId.split(".");
+                let title = s.title || sectionId;
                 
-                // Build hierarchical title if subsection/subsubsection exists
-                if (s.subsection_id) {
-                  const subsec = sec?.subsections?.find(sub => sub.id === s.subsection_id);
-                  if (subsec) {
-                    title = `${title} → ${subsec.title || s.subsection_id}`;
-                    
-                    if (s.subsubsection_id) {
-                      const subsubsec = subsec.subsubsections?.find(subsub => subsub.id === s.subsubsection_id);
-                      if (subsubsec) {
-                        title = `${title} → ${subsubsec.title || s.subsubsection_id}`;
-                      }
+                // Build hierarchical title based on ID format
+                if (parts.length === 2) {
+                  // Subsection level (e.g., "12.1")
+                  const section = sections.find(sec => sec.id === parts[0]);
+                  if (section) {
+                    title = `${section.title || parts[0]} → ${s.title || sectionId}`;
+                  }
+                } else if (parts.length === 3) {
+                  // Subsubsection level (e.g., "12.1.1")
+                  const section = sections.find(sec => sec.id === parts[0]);
+                  if (section) {
+                    const subsection = section.subsections?.find(sub => sub.id === `${parts[0]}.${parts[1]}`);
+                    if (subsection) {
+                      title = `${section.title || parts[0]} → ${subsection.title || `${parts[0]}.${parts[1]}`} → ${s.title || sectionId}`;
                     }
                   }
                 }
@@ -297,12 +328,12 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
                   <Paper key={idx} sx={{ p: 2, mb: 2 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                       <Typography variant="h6">{title}</Typography>
-                      {typeof s.confidence === 'number' && (
-                        <Chip size="small" label={`Conf: ${(s.confidence * 100).toFixed(0)}%`} />
-                      )}
                       {s.source?.pages?.length ? (
                         <Chip size="small" label={`Pages: ${s.source.pages.join(',')}`} />
                       ) : null}
+                      {s.source_file && (
+                        <Chip size="small" label={`From: ${s.source_file}`} color="secondary" />
+                      )}
                     </Box>
                     <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                       {s.content || ""}

@@ -93,7 +93,6 @@ class DocumentService:
             doc_ref.delete()
             return True
         except Exception as e:
-            print("Error deleting document:", e)
             return False
     @staticmethod
     def update_document(uid: str, document_id: str, payload: dict):
@@ -155,7 +154,8 @@ class DocumentService:
     def apply_extraction(uid: str, document_id: str, accepted: list):
         """
         Apply accepted AI suggestions to the document.
-        Each item: { section_id, subsection_id, subsubsection_id, content, mode: 'prepend'|'append'|'replace' }
+        Each item: { section_id (hierarchical format), content, mode: 'prepend'|'append'|'replace' }
+        section_id can be: "9" (section), "9.1" (subsection), "9.1.1" (subsubsection)
         """
         doc_ref = (
             db.collection("users")
@@ -172,44 +172,54 @@ class DocumentService:
         section_map = {s.get("id"): s for s in sections}
 
         for item in accepted or []:
-            sec_id = item.get("section_id")
-            sub_id = item.get("subsection_id")
-            subsub_id = item.get("subsubsection_id")
+            section_id = item.get("section_id", "")
             content = item.get("content", "")
             mode = (item.get("mode") or "append").lower()
 
-            target = section_map.get(sec_id)
-            if not target:
+            if not section_id:
                 continue
 
-            if sub_id:
-                subs = target.get("subsections", [])
-                sub_map = {ss.get("id"): ss for ss in subs}
-                sub = sub_map.get(sub_id)
-                if sub is None:
-                    continue
+            # Parse the hierarchical section_id to determine the level and find the target
+            parts = section_id.split(".")
+            
+            if len(parts) == 1:
+                # Section level (e.g., "9")
+                target = section_map.get(section_id)
+                if target:
+                    existing = target.get("description") or ""
+                    target["description"] = DocumentService._update_rich_text(existing, content, mode)
+                    
+            elif len(parts) == 2:
+                # Subsection level (e.g., "9.1")
+                section_key = parts[0]
+                subsection_key = section_id
+                target = section_map.get(section_key)
+                if target:
+                    subs = target.get("subsections", [])
+                    sub = next((ss for ss in subs if ss.get("id") == subsection_key), None)
+                    if sub:
+                        existing = sub.get("description") or ""
+                        sub["description"] = DocumentService._update_rich_text(existing, content, mode)
+                        
+            elif len(parts) == 3:
+                # Subsubsection level (e.g., "9.1.1")
+                section_key = parts[0]
+                subsection_key = f"{parts[0]}.{parts[1]}"
+                subsubsection_key = section_id
                 
-                if subsub_id:
-                    # Handle subsubsection level
-                    subsubs = sub.get("subsubsections", [])
-                    subsub_map = {sss.get("id"): sss for sss in subsubs}
-                    subsub = subsub_map.get(subsub_id)
-                    if subsub is None:
-                        continue
-                    existing = subsub.get("description") or ""
-                    subsub["description"] = DocumentService._update_rich_text(existing, content, mode)
-                else:
-                    # Handle subsection level
-                    existing = sub.get("description") or ""
-                    sub["description"] = DocumentService._update_rich_text(existing, content, mode)
-            else:
-                # Handle section level
-                existing = target.get("description") or ""
-                target["description"] = DocumentService._update_rich_text(existing, content, mode)
+                target = section_map.get(section_key)
+                if target:
+                    subs = target.get("subsections", [])
+                    sub = next((ss for ss in subs if ss.get("id") == subsection_key), None)
+                    if sub:
+                        subsubs = sub.get("subsubsections", [])
+                        subsub = next((sss for sss in subsubs if sss.get("id") == subsubsection_key), None)
+                        if subsub:
+                            existing = subsub.get("description") or ""
+                            subsub["description"] = DocumentService._update_rich_text(existing, content, mode)
 
         doc["sections"] = list(section_map.values())
         doc["updated_at"] = datetime.utcnow().isoformat()
-        print(doc)  # Optional: for debugging
 
         doc_ref.set(doc)
         return doc

@@ -80,12 +80,22 @@ export default function EditorPage() {
     subsectionIndex,
     underSubsectionIndex
   ) => `${sectionIndex + 1}.${subsectionIndex + 1}.${underSubsectionIndex + 1}`;
+
+  // Generate hierarchical IDs for database storage
+  const getSectionId = (sectionIndex) => `${sectionIndex + 1}`;
+  const getSubsectionId = (sectionIndex, subsectionIndex) =>
+    `${sectionIndex + 1}.${subsectionIndex + 1}`;
+  const getUnderSubsectionId = (
+    sectionIndex,
+    subsectionIndex,
+    underSubsectionIndex
+  ) => `${sectionIndex + 1}.${subsectionIndex + 1}.${underSubsectionIndex + 1}`;
   // Build the full document content from sections and sectionsContent
   const buildFullDoc = (sections, sectionsContent) => {
     return {
       type: "doc",
       content: sections.flatMap((section, secIdx) => {
-        const secId = section.id || `sec-${secIdx}`;
+        const secId = section.id || getSectionId(secIdx);
         const secContent =
           sectionsContent[secId]?.content &&
           sectionsContent[secId].content.length > 0
@@ -137,7 +147,7 @@ export default function EditorPage() {
 
             // Use consistent ID generation that matches saveDraft function
             const subId =
-              sub.id || `${secId}-sub-${section.subsections.indexOf(sub)}`;
+              sub.id || getSubsectionId(secIdx, subIdx);
 
             const subContent =
               sectionsContent[subId]?.content &&
@@ -155,7 +165,7 @@ export default function EditorPage() {
                           type: "text",
                           text: `Enter content for ${getSubsectionLabel(
                             secIdx,
-                            section.subsections.indexOf(sub)
+                            subIdx
                           )} ${subTitle}...`,
                         },
                       ],
@@ -171,7 +181,7 @@ export default function EditorPage() {
                     type: "text",
                     text: `${getSubsectionLabel(
                       secIdx,
-                      section.subsections.indexOf(sub)
+                      subIdx
                     )} ${subTitle}`,
                   },
                 ],
@@ -186,7 +196,7 @@ export default function EditorPage() {
                   typeof underSub === "string" ? underSub : underSub.title;
 
                 const underSubId =
-                  underSub.id || `${subId}-undersub-${underSubIdx}`;
+                  underSub.id || getUnderSubsectionId(secIdx, subIdx, underSubIdx);
 
                 const underSubContent =
                   sectionsContent[underSubId]?.content &&
@@ -204,7 +214,7 @@ export default function EditorPage() {
                               type: "text",
                               text: `Enter content for ${getUnderSubsectionLabel(
                                 secIdx,
-                                section.subsections.indexOf(sub),
+                                subIdx,
                                 underSubIdx
                               )} ${underSubTitle}...`,
                             },
@@ -221,7 +231,7 @@ export default function EditorPage() {
                         type: "text",
                         text: `${getUnderSubsectionLabel(
                           secIdx,
-                          section.subsections.indexOf(sub),
+                          subIdx,
                           underSubIdx
                         )} ${underSubTitle}`,
                       },
@@ -284,7 +294,7 @@ export default function EditorPage() {
 
                 if (typeof ss === "string") {
                   return {
-                    id: `sec-${sectionIndex}-sub-${idx}`,
+                    id: getSubsectionId(response.sections.indexOf(s), idx),
                     title: ss,
                     description: "",
                     underSubsections: [],
@@ -299,13 +309,13 @@ export default function EditorPage() {
                     underSubsections = ss.underSubsections.map((us, usIdx) => {
                       if (typeof us === "string") {
                         return {
-                          id: `sec-${sectionIndex}-sub-${idx}-undersub-${usIdx}`,
+                          id: getUnderSubsectionId(response.sections.indexOf(s), idx, usIdx),
                           title: us,
                           description: "",
                         };
                       } else {
                         return {
-                          id: `sec-${sectionIndex}-sub-${idx}-undersub-${usIdx}`,
+                          id: us.id || getUnderSubsectionId(response.sections.indexOf(s), idx, usIdx),
                           title: us.title || us.name || String(us),
                           description: us.description || "",
                         };
@@ -314,7 +324,7 @@ export default function EditorPage() {
                   }
 
                   return {
-                    id: `sec-${sectionIndex}-sub-${idx}`,
+                    id: ss.id || getSubsectionId(response.sections.indexOf(s), idx),
                     title: ss.title || ss.name || String(ss),
                     description: ss.description || "",
                     underSubsections,
@@ -327,7 +337,7 @@ export default function EditorPage() {
             }
             return {
               ...s,
-              id: s.id || `sec-${response.sections.indexOf(s)}`,
+              id: s.id || getSectionId(response.sections.indexOf(s)),
               title: s.title || "Untitled",
               description: s.description || "",
               subsections,
@@ -517,10 +527,10 @@ export default function EditorPage() {
               sec.subsections.forEach((ss, subIdx) => {
                 let subId, desc;
                 if (typeof ss === "string") {
-                  subId = sec.id + "-sub" + subIdx;
+                  subId = getSubsectionId(response.sections.indexOf(sec), subIdx);
                   desc = "";
                 } else {
-                  subId = ss.id || sec.id + "-sub" + subIdx;
+                  subId = ss.id || getSubsectionId(response.sections.indexOf(sec), subIdx);
                   desc = ss.description || "";
                 }
                 try {
@@ -549,10 +559,10 @@ export default function EditorPage() {
                   ss.underSubsections.forEach((us, usIdx) => {
                     let underSubId, underSubDesc;
                     if (typeof us === "string") {
-                      underSubId = `${subId}-undersub-${usIdx}`;
+                      underSubId = getUnderSubsectionId(response.sections.indexOf(sec), subIdx, usIdx);
                       underSubDesc = "";
                     } else {
-                      underSubId = us.id || `${subId}-undersub-${usIdx}`;
+                      underSubId = us.id || getUnderSubsectionId(response.sections.indexOf(sec), subIdx, usIdx);
                       underSubDesc = us.description || "";
                     }
                     try {
@@ -701,7 +711,7 @@ export default function EditorPage() {
     const updatedSections = extractedSections.map(
       (extractedSection, secIdx) => {
         const originalSection = sections[secIdx];
-        const secId = originalSection?.id || `sec-${secIdx}`;
+        const secId = originalSection?.id || getSectionId(secIdx);
 
         // Special handling for TITLE PAGE to preserve metadata format
         let description;
@@ -729,7 +739,7 @@ export default function EditorPage() {
           subsections: extractedSection.subsections.map(
             (extractedSub, subIdx) => {
               const originalSub = originalSection?.subsections[subIdx];
-              const subId = originalSub?.id || `${secId}-sub-${subIdx}`;
+              const subId = originalSub?.id || getSubsectionId(secIdx, subIdx);
 
               return {
                 ...originalSub,
@@ -744,8 +754,7 @@ export default function EditorPage() {
                     const originalUnderSub =
                       originalSub?.underSubsections?.[underSubIdx];
                     const underSubId =
-                      originalUnderSub?.id ||
-                      `${subId}-undersub-${underSubIdx}`;
+                      originalUnderSub?.id || getUnderSubsectionId(secIdx, subIdx, underSubIdx);
 
                     return {
                       ...originalUnderSub,
@@ -775,7 +784,7 @@ export default function EditorPage() {
       setSectionsContent((prev) => {
         const updated = { ...prev };
         updatedSections.forEach((section) => {
-          const secId = section.id || `sec-${sections.indexOf(section)}`;
+          const secId = section.id || getSectionId(sections.indexOf(section));
 
           // Special handling for TITLE PAGE - don't parse as JSON
           if (
@@ -790,7 +799,7 @@ export default function EditorPage() {
 
           section.subsections.forEach((sub, idx) => {
             const subId =
-              typeof sub === "string" ? `${secId}-sub-${idx}` : sub.id;
+              typeof sub === "string" ? getSubsectionId(sections.indexOf(section), idx) : sub.id;
             updated[subId] = JSON.parse(sub.description);
 
             // Handle under-subsections
@@ -798,7 +807,7 @@ export default function EditorPage() {
               sub.underSubsections.forEach((underSub, underIdx) => {
                 const underSubId =
                   typeof underSub === "string"
-                    ? `${subId}-undersub-${underIdx}`
+                    ? getUnderSubsectionId(sections.indexOf(section), idx, underIdx)
                     : underSub.id;
                 updated[underSubId] = JSON.parse(underSub.description);
               });
@@ -882,7 +891,7 @@ export default function EditorPage() {
     // Update local sections state to include the new subsection
     const updatedSections = [...sections];
     const newSubsection = {
-      id: `sec-${sectionIndex}-sub-${currentSection.subsections.length}`,
+      id: getSubsectionId(sectionIndex, currentSection.subsections.length),
       title: newSubsectionTitle,
       description: "",
       underSubsections: [],
@@ -951,7 +960,7 @@ export default function EditorPage() {
     }`;
 
     const newUnderSubsection = {
-      id: `sec-${sectionIndex}-sub-${subsectionIndex}-undersub-${currentSubsection.underSubsections.length}`,
+      id: getUnderSubsectionId(sectionIndex, subsectionIndex, currentSubsection.underSubsections.length),
       title: newUnderSubsectionTitle,
       description: "",
     };
@@ -1008,7 +1017,7 @@ export default function EditorPage() {
     if (!editor) return;
 
     const newSectionTitle = `New Section ${sections.length + 1}`;
-    const newSectionId = `sec-${sections.length}`;
+    const newSectionId = getSectionId(sections.length);
 
     // Create new section object
     const newSection = {
@@ -1225,7 +1234,7 @@ export default function EditorPage() {
                             <Box
                               key={
                                 sub.id ||
-                                `${section.id || `sec-${i}`}-sub-${originalIdx}`
+                                getSubsectionId(i, originalIdx)
                               }
                             >
                               <ListItem

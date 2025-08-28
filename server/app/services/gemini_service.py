@@ -104,6 +104,7 @@ class GeminiService:
         mime_type: str,
         document_sections: list,
     ) -> dict:
+        print("filename",filename)
         """
         Use Gemini to semantically extract content for the provided template sections/subsections
         directly from the uploaded PDF bytes. Returns a JSON-safe dictionary with suggestions.
@@ -118,62 +119,76 @@ class GeminiService:
             raise HTTPException(status_code=413, detail=f"File too large. Max {MAX_FILE_MB} MB.")
 
         file_part = Part.from_bytes(data=file_bytes, mime_type=mime or "application/pdf")
-
-        # Provide the current document structure so Gemini can align extracted content by IDs/titles
         target_document_json = {
             "sections": document_sections or []
         }
+        
 
         # Pydantic response schema for structured suggestions
         class SuggestionSource(BaseModel):
             pages: List[int] = []
 
         class SectionSuggestion(BaseModel):
-            section_id: str
-            subsection_id: Optional[str] = None
-            subsubsection_id: Optional[str] = None
+            section_id: str  # Most specific level where content belongs (e.g., "12.1.1" for subsubsection)
             title: Optional[str] = None
             content: str = ""
-            confidence: Optional[float] = None
             source: Optional[SuggestionSource] = None
-            note: Optional[str] = None
 
         class ExtractionResponse(BaseModel):
             suggestions: List[SectionSuggestion] = []
 
         system_prompt = """
-            You are an expert in ICH E3 Clinical Study Reports.
-            Given a PDF and the current CSR document structure (sections/subsections with IDs and titles),
-            extract the most relevant text spans from the PDF and map them to the corresponding
-            sections/subsections. The PDF may not contain explicit headings.
+           You are an expert in ICH E3 Clinical Study Reports.
 
-            Return STRICTLY valid JSON with this schema:
+            Your task is to review raw text extracted from clinical study documents (PDFs) that **do not include section headings**, and assign the CSR document structure content to the appropriate section/subsection/subsubsection of a CSR based on meaning.
+
+            You are given:
+            1. A structured list of sections, subsections, and subsubsections — each with:
+            - a unique ID
+            - a title
+            2. PDF content (unstructured clinical text)
+
+            Your task:
+            - Read and understand the content of the PDF.
+            - Match each meaningful block of text to the correct section/subsection/subsubsection based on its **semantic meaning**.
+            - For each matched block, return a `suggestion` with:
+            - `section_id`, `subsection_id`, `subsubsection_id` (use correct IDs from structure)
+            - the corresponding `title` (based on the matched ID)
+            - the `content` (as found in the PDF)
+            - the `source` (page numbers)
+            - an optional `note` explaining the match
+
+            **ID Format Examples:**
+            - Section level: "9" (for section 9)
+            - Subsection level: "9.1" (for subsection 9.1)
+            - Subsubsection level: "9.1.1" (for subsubsection 9.1.1)
+
+            **Important Rules:**
+            - Use ONLY the ID of the MOST SPECIFIC level where content fits
+            - If content fits a subsubsection, use "9.1.1" NOT "9" or "9.1"
+            - If content fits a subsection, use "9.1" NOT "9"
+            - Only use IDs that exist in the provided document structure
+            - Keep content concise but faithful; do not invent
+            - Prefer plain text; you may include light markdown for lists if useful
+
+            Return JSON in this format:
+            ```json
             {
               "suggestions": [
                 {
-                  "section_id": "string",              // from provided document structure
-                  "subsection_id": "string|null",      // from provided document structure or null
-                  "subsubsection_id": "string|null",   // from provided document structure or null
-                  "title": "string",                   // human-readable
-                  "content": "string",                 // extracted content; plain text preferred
-                  "confidence": 0.0,                    // 0..1
-                  "source": { "pages": [1, 2] },
-                  "note": "string|null"                // optional explanation
+                  "section_id": "9.1.1",
+                  "title": "Study Design - Patient Population",
+                  "content": "Patients were randomly assigned to two groups...",
+                  "source": { "pages": [3] }
                 }
               ]
             }
-
-            Rules:
-            - Only use section/subsection/subsubsection IDs that exist in the provided document structure.
-            - If no good match exists, include an item with empty content and low confidence and a note.
-            - Keep content concise but faithful; do not invent.
-            - Prefer plain text; you may include light markdown for lists if useful.
-            - Support three levels: section → subsection → subsubsection (e.g., 12 → 12.1 → 12.1.1)
+            ```
         """
 
         # Call Gemini with async if available; otherwise fall back to sync
-        try:
-            response = await client.aio.models.generate_content(
+        
+        response = await client.aio.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=[file_part, "Document:", str(target_document_json), system_prompt],
                 config=GenerateContentConfig(
@@ -182,23 +197,25 @@ class GeminiService:
                     temperature=0.2,
                 ),
             )
-        except Exception as async_err:
-            try:
-                sync_response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=[file_part, "Document:", str(target_document_json), system_prompt],
-                    config=GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=ExtractionResponse,
-                        temperature=0.2,
-                    ),
-                )
-                response = sync_response
-            except Exception as sync_err:
-                raise HTTPException(status_code=500, detail=f"Gemini call failed: {str(sync_err) or str(async_err)}")
-        # With response_schema, parsed is a pydantic model
-        if not hasattr(response, "parsed") or response.parsed is None:
-            raise HTTPException(status_code=500, detail="Empty AI extraction response")
-        parsed: ExtractionResponse = response.parsed
-        return parsed.model_dump()
+        print(response.parsed ) 
+        # except Exception as async_err:
+        #     try:
+        #         sync_response = client.models.generate_content(
+        #             model="gemini-2.0-flash",
+        #             contents=[file_part, "Document:", str(target_document_json), system_prompt],
+        #             config=GenerateContentConfig(
+        #                 response_mime_type="application/json",
+        #                 response_schema=ExtractionResponse,
+        #                 temperature=0.2,
+        #             ),
+        #         )
+        #         response = sync_response
+        #     except Exception as sync_err:
+        #         raise HTTPException(status_code=500, detail=f"Gemini call failed: {str(sync_err) or str(async_err)}")
+        # # With response_schema, parsed is a pydantic model
+        # if not hasattr(response, "parsed") or response.parsed is None:
+        #     raise HTTPException(status_code=500, detail="Empty AI extraction response")
+        # parsed: ExtractionResponse = response.parsed
+        # p=parsed.model_dump()
+        # print(p)
 
