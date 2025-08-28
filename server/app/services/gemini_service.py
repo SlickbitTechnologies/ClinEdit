@@ -176,6 +176,7 @@ class GeminiService:
         try:
             parsed = ExtractionResponse.model_validate_json(response.text)
         except Exception as e:
+            
             raise HTTPException(
                 status_code=500,
                 detail=f"Invalid AI extraction response. Raw: {getattr(response, 'text', str(response))}",

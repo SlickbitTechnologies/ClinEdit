@@ -28,13 +28,14 @@ import {
 import { toast } from "react-toastify";
 import { ingestPdfForDocument, applyExtractionToDocument } from "../../pages/services/services";
 
-const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
+const AIDraftingPanel = ({ sections, onContentGenerated, documentId, onClose }) => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [generatedContent, setGeneratedContent] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  // UI is controlled by parent; no internal closed state
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
@@ -181,115 +182,84 @@ const AIDraftingPanel = ({ sections, onContentGenerated, documentId }) => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h6" sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <AutoAwesomeIcon color="primary" />
-        AI Drafting Assistant
-      </Typography>
-
+    <Box sx={{ p: 2 }}>
       <Paper
         sx={{
-          p: 3,
-          mb: 2,
-          border: "2px dashed #e0e4e7",
+          p: 1.5,
+          border: "1px dashed #e0e4e7",
           borderRadius: 2,
-          textAlign: "center",
-          cursor: "pointer",
-          "&:hover": {
-            borderColor: "#16a085",
-            bgcolor: "rgba(22, 160, 133, 0.05)",
-          },
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          mb: 1.5,
         }}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        onClick={() => document.getElementById("pdf-upload").click()}
       >
-        <CloudUploadIcon sx={{ fontSize: 48, color: "#16a085", mb: 1 }} />
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          Upload Clinical PDFs
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Drag & drop PDF files here or click to browse
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-          Supported: Protocols, Study Reports, Safety Data, Regulatory Documents
-        </Typography>
-        <input
-          id="pdf-upload"
-          type="file"
-          multiple
-          accept=".pdf"
-          style={{ display: "none" }}
-          onChange={handleFileUpload}
-        />
+        {isProcessing ? (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: "#00c853", 
+                fontWeight: 600, 
+                minWidth: 110, 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 0.5 
+              }}
+            >
+              <AutoAwesomeIcon sx={{ fontSize: 18, color: "#00c853" }} />
+              Processing...
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ fontWeight: 600, color: "#00c853" }}
+            >
+              {processingProgress}%
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 1.5, cursor: "pointer", flexGrow: 1 }}
+              onClick={() => document.getElementById("pdf-upload").click()}
+            >
+              <CloudUploadIcon sx={{ fontSize: 28, color: "#16a085" }} />
+              <Typography variant="body2" color="text.secondary">
+                {uploadedFiles.length === 0
+                  ? "Drag & drop PDFs here or click to browse"
+                  : uploadedFiles.map(f => f.name).join(", ")}
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={processWithAI}
+                disabled={uploadedFiles.length === 0}
+                sx={{ bgcolor: "#16a085", "&:hover": { bgcolor: "#138d75" } }}
+              >
+                Submit
+              </Button>
+              <IconButton size="small" onClick={onClose}>
+                <CancelIcon />
+              </IconButton>
+            </Box>
+
+            <input
+              id="pdf-upload"
+              type="file"
+              multiple
+              accept=".pdf"
+              style={{ display: "none" }}
+              onChange={handleFileUpload}
+            />
+          </>
+        )}
       </Paper>
 
-      {/* Uploaded Files List */}
-      {uploadedFiles.length > 0 && (
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Uploaded Files ({uploadedFiles.length})
-          </Typography>
-          <List dense>
-            {uploadedFiles.map((file, index) => (
-              <ListItem key={index}>
-                <ListItemText
-                  primary={file.name}
-                  secondary={`${(file.size / 1024 / 1024).toFixed(2)} MB`}
-                />
-                <ListItemSecondaryAction>
-                  <IconButton
-                    edge="end"
-                    onClick={() => removeFile(index)}
-                    size="small"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
-      )}
-
-      {/* Processing Progress */}
-      {isProcessing && (
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            AI Processing in Progress...
-          </Typography>
-          <LinearProgress variant="determinate" value={processingProgress} />
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-            Extracting and analyzing content from PDFs
-          </Typography>
-        </Paper>
-      )}
-
-      {/* Action Buttons */}
-      <Box sx={{ display: "flex", gap: 2 }}>
-        <Button
-          variant="contained"
-          onClick={processWithAI}
-          disabled={uploadedFiles.length === 0 || isProcessing}
-          startIcon={<AutoAwesomeIcon />}
-          sx={{
-            bgcolor: "#16a085",
-            "&:hover": { bgcolor: "#138d75" },
-          }}
-        >
-          {isProcessing ? "Processing..." : "Generate AI Draft"}
-        </Button>
-        
-        {generatedContent && (
-          <Button
-            variant="outlined"
-            onClick={() => setShowPreview(true)}
-            startIcon={<PreviewIcon />}
-          >
-            Preview Generated Content
-          </Button>
-        )}
-      </Box>
 
       {/* Preview Dialog */}
       <Dialog

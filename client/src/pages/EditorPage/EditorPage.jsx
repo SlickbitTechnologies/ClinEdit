@@ -1481,24 +1481,33 @@ export default function EditorPage() {
                   {sections[selectedSectionIndex].title}
                 </Typography>
               </Box>
-              <Box sx={{ display: "flex", gap: 1.5 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => setShowAIDrafting(!showAIDrafting)}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderColor: "#16a085",
-                    color: "#16a085",
-                    "&:hover": {
+              <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+                {!showAIDrafting ? (
+                  <Button
+                    variant="outlined"
+                    onClick={() => setShowAIDrafting(true)}
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: "none",
+                      fontWeight: 600,
                       borderColor: "#16a085",
-                      bgcolor: "rgba(22, 160, 133, 0.1)",
-                    },
-                  }}
-                >
-                  {showAIDrafting ? "Hide AI Drafting" : "AI Drafting"}
-                </Button>
+                      color: "#16a085",
+                      "&:hover": {
+                        borderColor: "#16a085",
+                        bgcolor: "rgba(22, 160, 133, 0.1)",
+                      },
+                    }}
+                  >
+                    AI Drafting
+                  </Button>
+                ) : (
+                  <AIDraftingPanel
+                    sections={sections}
+                    onContentGenerated={handleAIContentGenerated}
+                    documentId={id}
+                    onClose={() => setShowAIDrafting(false)}
+                  />
+                )}
               </Box>
             </Toolbar>
           </AppBar>
@@ -1506,16 +1515,7 @@ export default function EditorPage() {
           {/* Editor Toolbar */}
           <EditorToolbar editor={editor} />
 
-          {/* AI Drafting Panel */}
-          {showAIDrafting && (
-            <Box sx={{ borderBottom: "1px solid #e0e4e7" }}>
-              <AIDraftingPanel
-                sections={sections}
-                onContentGenerated={handleAIContentGenerated}
-                documentId={id}
-              />
-            </Box>
-          )}
+          
 
           {/* Editor Content */}
           <Box
