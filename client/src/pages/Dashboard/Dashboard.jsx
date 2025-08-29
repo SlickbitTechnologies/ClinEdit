@@ -90,11 +90,11 @@ export default function DashboardPage() {
     return matchesSearch && matchesFilter;
   });
   // Sort documents by date descending (recent first)
-  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
-    const dateA = new Date(a.meta_data?.metadata?.documentDate);
-    const dateB = new Date(b.meta_data?.metadata?.documentDate);
-    return dateB - dateA; // recent first
-  });
+const sortedDocuments = [...filteredDocuments].sort((a, b) => {
+  const dateA = new Date(a.created_at);
+  const dateB = new Date(b.created_at);
+  return dateB - dateA; // most recent first
+});
 
   const handleViewModeChange = (event, newViewMode) => {
     if (newViewMode !== null) {
@@ -256,7 +256,12 @@ export default function DashboardPage() {
           </Box>
         </Paper>
         <Box sx={{ mb: 2 }}>
-          <Typography variant="h5" className="recent-label" textAlign={"left"} fontWeight={"Bold"}>
+          <Typography
+            variant="h5"
+            className="recent-label"
+            textAlign={"left"}
+            fontWeight={"Bold"}
+          >
             Recent
           </Typography>
         </Box>
@@ -270,20 +275,22 @@ export default function DashboardPage() {
             {sortedDocuments.map((doc) => (
               <div className="grid-item" key={doc.id}>
                 <Card className="document-card">
-                  <CardContent>
+                  <CardContent sx={{ flexGrow: 1, p: 2 }}>
                     <Box className="card-header">
                       <Avatar className="doc-icon">
                         <Description />
                       </Avatar>
+                      <Typography variant="h6" className="doc-title" >
+                        {doc.meta_data?.metadata?.studyTitle || "Untitled"}
+                      </Typography>
                     </Box>
-                    <Typography variant="h6" className="doc-title">
-                      {doc.meta_data?.metadata?.studyTitle}
-                    </Typography>
-    
+
                     <Box className="doc-meta">
                       <Box className="meta-item">
                         <CalendarToday fontSize="small" />
-           
+                        <Typography variant="caption">
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </Typography>
                       </Box>
                       <Box className="meta-item">
                         <Person fontSize="small" />
@@ -354,7 +361,6 @@ export default function DashboardPage() {
                       }
                       secondary={
                         <Typography variant="body2" color="textSecondary">
-                 
                           {doc.meta_data?.metadata?.author}
                         </Typography>
                       }
@@ -397,7 +403,7 @@ export default function DashboardPage() {
                             <DeleteOutline fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      </CardActions> 
+                      </CardActions>
                     </Box>
                   </ListItem>
                   {index < sortedDocuments.length - 1 && <Divider />}
@@ -427,23 +433,6 @@ export default function DashboardPage() {
 
           <DialogContent className="modal-content">
             <div className="form-grid">
-              <div className="form-item">
-                <FormControl fullWidth variant="outlined">
-                  <InputLabel>Confidentiality</InputLabel>
-                  <Select
-                    value={formData.confidentiality}
-                    onChange={handleInputChange("confidentiality")}
-                    label="Confidentiality"
-                  >
-                    <MenuItem value="Public">Public</MenuItem>
-                    <MenuItem value="Internal">Internal</MenuItem>
-                    <MenuItem value="Confidential">Confidential</MenuItem>
-                    <MenuItem value="Highly Confidential">
-                      Highly Confidential
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
               <div className="form-item full-width">
                 <TextField
                   fullWidth
@@ -488,6 +477,23 @@ export default function DashboardPage() {
                     <MenuItem value="Phase II">Phase II</MenuItem>
                     <MenuItem value="Phase III">Phase III</MenuItem>
                     <MenuItem value="Phase IV">Phase IV</MenuItem>
+                  </Select>
+                </FormControl>
+              </div>
+              <div className="form-item">
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel>Confidentiality</InputLabel>
+                  <Select
+                    value={formData.confidentiality}
+                    onChange={handleInputChange("confidentiality")}
+                    label="Confidentiality"
+                  >
+                    <MenuItem value="Public">Public</MenuItem>
+                    <MenuItem value="Internal">Internal</MenuItem>
+                    <MenuItem value="Confidential">Confidential</MenuItem>
+                    <MenuItem value="Highly Confidential">
+                      Highly Confidential
+                    </MenuItem>
                   </Select>
                 </FormControl>
               </div>

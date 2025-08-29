@@ -55,7 +55,6 @@ const initialFallbackSections = [
     description: "Scientific background and study rationale",
     subsections: ["Scientific background", "Study rationale"],
   },
-  // ... you can keep more fallback sections if you'd like
 ];
 export default function EditorPage() {
   const hasFetched = useRef(false);
@@ -398,9 +397,9 @@ export default function EditorPage() {
                           {
                             type: "text",
                             marks: [{ type: "bold" }],
-                            text: "Study Phase: ",
+                            text: "Study Title: ",
                           },
-                          { type: "text", text: metadata.phase || "N/A" },
+                          { type: "text", text: metadata.studyTitle || "N/A" },
                         ],
                       },
                       {
@@ -413,6 +412,33 @@ export default function EditorPage() {
                             text: "Indication: ",
                           },
                           { type: "text", text: metadata.indication || "N/A" },
+                        ],
+                      },
+                      {
+                        type: "paragraph",
+                        attrs: { textAlign: "left" },
+                        content: [
+                          {
+                            type: "text",
+                            marks: [{ type: "bold" }],
+                            text: "Study Phase: ",
+                          },
+                          { type: "text", text: metadata.phase || "N/A" },
+                        ],
+                      },
+                      {
+                        type: "paragraph",
+                        attrs: { textAlign: "left" },
+                        content: [
+                          {
+                            type: "text",
+                            marks: [{ type: "bold" }],
+                            text: "Confidentiality: ",
+                          },
+                          {
+                            type: "text",
+                            text: metadata.confidentiality || "N/A",
+                          },
                         ],
                       },
                       {
@@ -463,21 +489,6 @@ export default function EditorPage() {
                           {
                             type: "text",
                             text: metadata.documentDate || "N/A",
-                          },
-                        ],
-                      },
-                      {
-                        type: "paragraph",
-                        attrs: { textAlign: "left" },
-                        content: [
-                          {
-                            type: "text",
-                            marks: [{ type: "bold" }],
-                            text: "Confidentiality: ",
-                          },
-                          {
-                            type: "text",
-                            text: metadata.confidentiality || "N/A",
                           },
                         ],
                       },
