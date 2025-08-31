@@ -1,30 +1,34 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+
 import html2pdf from "html2pdf.js";
 import {
   Box,
+  Typography,
   Button,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Typography,
   List,
   ListItem,
   ListItemText,
   Toolbar,
   IconButton,
   AppBar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   ExpandMore as ExpandMoreIcon,
-} from "@mui/icons-material";
-import {
   Save as SaveIcon,
   Download as DownloadIcon,
   Add as AddIcon,
+  InfoOutlined as InfoOutlinedIcon,
 } from "@mui/icons-material";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -43,6 +47,7 @@ import { getDocumentById, updateDocument } from "../services/services";
 import EditorToolbar from "../../components/toolbar/EditorToolbar";
 import AIDraftingPanel from "../../components/AIDrafting/AIDraftingPanel";
 import "./EditorPage.css";
+import ShareButton from "../../components/sharebutton/ShareButton";
 
 const initialFallbackSections = [
   {
@@ -67,6 +72,9 @@ export default function EditorPage() {
   const [sections, setSections] = useState(initialFallbackSections);
   const [sectionsContent, setSectionsContent] = useState({});
   const [showAIDrafting, setShowAIDrafting] = useState(false);
+  
+
+  const [showMetaDialog, setShowMetaDialog] = useState(false);
 
   const togglePanel = (i) => {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
@@ -264,18 +272,23 @@ export default function EditorPage() {
     ],
     content: buildFullDoc(sections, sectionsContent),
   });
+
   useEffect(() => {
+    if (!hasFetched.current && id) {
+      hasFetched.current = true;
+      fetchDocument();
+    }
+  }, [id]);
+
+
+
+  const fetchDocument = async () => {
     if (!id) return;
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    const fetchDoc = async () => {
-      setLoading(true);
-      try {
-        const response = await getDocumentById(id);
-        // store original response
-        setDoc(response);
-
+    setLoading(true);
+    try {
+      const response = await getDocumentById(id);
+      // store original response
+      setDoc(response);
         // Normalize sections and subsections from backend
         // Each section: { id, title, description, subsections: [ {id, title, description} ] }
         if (
@@ -618,7 +631,11 @@ export default function EditorPage() {
       }
     };
 
-    fetchDoc();
+  useEffect(() => {
+    if (!hasFetched.current && id) {
+      hasFetched.current = true;
+      fetchDocument();
+    }
   }, [id]);
 
   const saveDraft = async () => {
@@ -885,6 +902,8 @@ export default function EditorPage() {
     }
   };
 
+
+
   const createSubsection = (sectionIndex = selectedSectionIndex) => {
     if (!editor) return;
 
@@ -1098,10 +1117,22 @@ export default function EditorPage() {
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: "#2c3e50" }}>
-              {headerTitle}
-            </Typography>
- 
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, color: "#2c3e50" }}
+              >
+                {headerTitle}
+              </Typography>
+              <IconButton
+                size="small"
+                sx={{ ml: 1, color: "#16a085" }}
+                onClick={() => setShowMetaDialog(true)}
+                aria-label="Show document metadata"
+              >
+                <InfoOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Box>
           </Box>
         </Box>
 
@@ -1133,6 +1164,7 @@ export default function EditorPage() {
             Export
           </Button>
         </Box>
+        <ShareButton docId={id} />
       </Box>
 
       {/* Main Content: Sidebar + Editor */}
@@ -1191,7 +1223,7 @@ export default function EditorPage() {
                     expandIcon={<ExpandMoreIcon />}
                     onClick={() => {
                       setSelectedSectionIndex(i);
-                                        setTimeout(() => {
+                      setTimeout(() => {
                         // Find the main section heading
                         const sectionLabel = `${getSectionLabel(i)} ${
                           section.title
@@ -1243,17 +1275,14 @@ export default function EditorPage() {
                           }
                           return (
                             <Box
-                              key={
-                                sub.id ||
-                                getSubsectionId(i, originalIdx)
-                              }
+                              key={sub.id || getSubsectionId(i, originalIdx)}
                             >
                               <ListItem
                                 button
                                 onClick={() => {
                                   if (!openPanels[i]) togglePanel(i);
                                   setSelectedSectionIndex(i);
-                                              setTimeout(() => {
+                                  setTimeout(() => {
                                     // Find the subsection heading by looking for the specific subsection label
                                     const subsectionLabel = `${getSubsectionLabel(
                                       i,
@@ -1348,7 +1377,7 @@ export default function EditorPage() {
                                         onClick={() => {
                                           if (!openPanels[i]) togglePanel(i);
                                           setSelectedSectionIndex(i);
-                                                          setTimeout(() => {
+                                          setTimeout(() => {
                                             const underSubsectionLabel = `${getUnderSubsectionLabel(
                                               i,
                                               originalIdx,
@@ -1526,8 +1555,6 @@ export default function EditorPage() {
           {/* Editor Toolbar */}
           <EditorToolbar editor={editor} />
 
-          
-
           {/* Editor Content */}
           <Box
             sx={{
@@ -1552,6 +1579,83 @@ export default function EditorPage() {
           </Box>
         </Box>
       </Box>
+      {/* Dialog for Metadata */}
+      <Dialog
+        open={showMetaDialog}
+        onClose={() => setShowMetaDialog(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Document Metadata</DialogTitle>
+        <DialogContent dividers>
+          {(() => {
+            // Try to get metadata object from doc
+            let metadata = {};
+            if (doc && doc.meta_data) {
+              if (doc.meta_data.metadata) {
+                metadata = doc.meta_data.metadata;
+              } else {
+                metadata = doc.meta_data;
+              }
+            }
+            if (
+              metadata &&
+              typeof metadata === "object" &&
+              Object.keys(metadata).length > 0
+            ) {
+              return (
+                <Box>
+                  {Object.entries(metadata).map(([key, value]) => (
+                    <Typography
+                      key={key}
+                      sx={{
+                        mb: 1,
+                        color: "primary.main",
+                        fontWeight: 500,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                      }}
+                      variant="body1"
+                    >
+                      <span
+                        style={{
+                          color: "#2c3e50",
+                          minWidth: 120,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {key
+                          .replace(/([A-Z])/g, " $1")
+                          .replace(/^./, (s) => s.toUpperCase())}
+                        :
+                      </span>
+                      <span style={{ color: "#555", fontWeight: 400 }}>
+                        {value || "N/A"}
+                      </span>
+                    </Typography>
+                  ))}
+                </Box>
+              );
+            } else {
+              return (
+                <Typography color="text.secondary">
+                  No metadata available.
+                </Typography>
+              );
+            }
+          })()}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowMetaDialog(false)}
+            color="primary"
+            variant="contained"
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

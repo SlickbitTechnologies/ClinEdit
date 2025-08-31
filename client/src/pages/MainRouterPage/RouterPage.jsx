@@ -7,6 +7,8 @@ import Layout from "../Layout/Layout"
 import TemplateConfiguration from "../TemplateConfiguration/TemplateConfiguration";
 import EditorPage from "../EditorPage/EditorPage";
 import DashboardPage from "../Dashboard/Dashboard";
+import SharedDocumentPage from "../SharedDocumentPage/SharedDocumentPage";
+
 export default function Routespage() {
   return (
     <div>
@@ -14,6 +16,9 @@ export default function Routespage() {
 
       <Routes>
         <Route path="/" element={<LandigPage />} />
+        
+        {/* Public route for shared documents */}
+        <Route path="/documents/:docId" element={<SharedDocumentPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Layout />}>

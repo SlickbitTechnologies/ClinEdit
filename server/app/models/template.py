@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field,EmailStr
 from typing import List, Optional
 from datetime import datetime
 import uuid
@@ -23,3 +23,10 @@ class CSRTemplate(BaseModel):
     sections: List[Section]
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+
+class ShareRequest(BaseModel):
+    document_id: str
+    email: EmailStr
+    role: str

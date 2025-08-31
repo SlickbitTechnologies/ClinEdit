@@ -75,6 +75,62 @@ class DocumentService:
         if not doc_ref.exists:
             return None
         return doc_ref.to_dict()
+
+    @staticmethod
+    def get_public_document(document_id: str):
+        """
+        Fetch a document by ID for public access (no user authentication required).
+        This method searches across all users to find the document.
+        """
+        try:
+            print(f"DEBUG: get_public_document called with ID: {document_id}")
+            
+            # Search across all users to find the document
+            users_ref = db.collection("users")
+            print(f"DEBUG: Users collection reference: {users_ref}")
+            
+            # Get all users
+            users = list(users_ref.stream())
+            print(f"DEBUG: Found {len(users)} users in total")
+            
+            if len(users) == 0:
+                print("DEBUG: No users found in the database")
+                return None
+            
+            user_count = 0
+            for user in users:
+                user_count += 1
+                print(f"DEBUG: Checking user {user_count}: {user.id}")
+                
+                try:
+                    # Check if the user has the csr_documents collection
+                    csr_collection = user.reference.collection(DocumentService.COLLECTION)
+                    print(f"DEBUG: Checking collection {DocumentService.COLLECTION} for user {user.id}")
+                    
+                    # Check if the specific document exists
+                    doc_ref = csr_collection.document(document_id)
+                    doc = doc_ref.get()
+                    
+                    if doc.exists:
+                        print(f"DEBUG: Document found in user {user.id}")
+                        doc_data = doc.to_dict()
+                        print(f"DEBUG: Document data keys: {list(doc_data.keys()) if doc_data else 'None'}")
+                        return doc_data
+                    else:
+                        print(f"DEBUG: Document {document_id} not found in user {user.id}")
+                        
+                except Exception as user_error:
+                    print(f"DEBUG: Error checking user {user.id}: {user_error}")
+                    continue
+            
+            print(f"DEBUG: Document not found in any of {user_count} users")
+            return None
+            
+        except Exception as e:
+            print(f"Error fetching public document: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     @staticmethod
     def delete_document(uid: str, document_id: str) -> bool:
         """

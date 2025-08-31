@@ -3,6 +3,7 @@ from fastapi import UploadFile, File
 from services.csr_documentservice import DocumentService
 from dependencies.verify_token import verify_firebase_token
 from services.gemini_service import GeminiService
+import secrets
 router = APIRouter()
 
 @router.post("/create-document")
@@ -41,7 +42,47 @@ def get_document(document_id: str, request: dict = Depends(verify_firebase_token
             raise HTTPException(status_code=404, detail="Document not found")
         return document
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))    
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/documents/{document_id}/shared")
+def get_shared_document(document_id: str, token: str):
+    """
+    Fetch a shared document by its ID and token (no authentication required).
+    """
+    try:
+        print(f"DEBUG: Accessing shared document {document_id} with token {token}")
+        print(f"DEBUG: Available shared_links: {shared_links}")
+        
+        # Validate the token
+        if token not in shared_links:
+            print(f"DEBUG: Token {token} not found in shared_links")
+            raise HTTPException(status_code=403, detail="Invalid or expired share token")
+        
+        # Get the stored document and user info
+        stored_info = shared_links[token]
+        stored_doc_id = stored_info["doc_id"]
+        stored_user_id = stored_info["user_id"]
+        
+        # Check if the token corresponds to the requested document
+        if stored_doc_id != document_id:
+            print(f"DEBUG: Token {token} maps to document {stored_doc_id}, but requested {document_id}")
+            raise HTTPException(status_code=403, detail="Token does not match document")
+        
+        print(f"DEBUG: Token validation passed, fetching document {document_id} from user {stored_user_id}")
+        
+        # Get the document using the user-specific method
+        document = DocumentService.get_document_by_id(stored_user_id, document_id)
+        if not document:
+            print(f"DEBUG: Document {document_id} not found for user {stored_user_id}")
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        print(f"DEBUG: Document found successfully: {document.get('title', 'No title')}")
+        return document
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_shared_document: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")    
 
 @router.delete("/documents/{document_id}")
 async def delete_document(document_id: str, request=Depends(verify_firebase_token)):
@@ -133,3 +174,34 @@ def apply_extraction(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Store shared links in memory (in production, use a database)
+# Format: {token: {"doc_id": str, "user_id": str}}
+shared_links = {}
+
+@router.post("/documents/{doc_id}/share")
+def generate_share_link(doc_id: str, request: dict = Depends(verify_firebase_token)):
+    """
+    Generate a share link for a document.
+    In production, this should store the token in a database with expiration.
+    """
+    uid = request["uid"]
+    token = secrets.token_urlsafe(16)
+    shared_links[token] = {"doc_id": doc_id, "user_id": uid}
+    print(f"DEBUG: Generated share link for document {doc_id} with token {token} for user {uid}")
+    print(f"DEBUG: Current shared_links: {shared_links}")
+    return {"share_link": f"http://localhost:3000/documents/{doc_id}?token={token}"}
+
+@router.get("/documents/access/{token}")
+def resolve_share_link(token: str):
+    """
+    Resolve a share token to get the document ID and user ID.
+    """
+    if token not in shared_links:
+        return {"error": "Invalid or expired link"}
+    
+    stored_info = shared_links[token]
+    return {
+        "doc_id": stored_info["doc_id"], 
+        "user_id": stored_info["user_id"]
+    }    

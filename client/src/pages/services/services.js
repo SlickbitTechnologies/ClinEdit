@@ -207,3 +207,28 @@ export const applyExtractionToDocument = async (documentId, accepted) => {
   );
   return response.data; // { message, document }
 };
+
+
+
+// Share document endpoint
+export const shareDocument = async (docId) => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const idToken = await user.getIdToken();
+
+  try {
+    const response = await axios.post(
+      `http://localhost:8000/api/documents/${docId}/share`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${idToken}` },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error sharing document:", error);
+    throw error;
+  }
+};
