@@ -50,8 +50,7 @@ def get_shared_document(document_id: str, token: str):
     Fetch a shared document by its ID and token (no authentication required).
     """
     try:
-        print(f"DEBUG: Accessing shared document {document_id} with token {token}")
-        print(f"DEBUG: Available shared_links: {shared_links}")
+      
         
         # Validate the token
         if token not in shared_links:
@@ -65,10 +64,9 @@ def get_shared_document(document_id: str, token: str):
         
         # Check if the token corresponds to the requested document
         if stored_doc_id != document_id:
-            print(f"DEBUG: Token {token} maps to document {stored_doc_id}, but requested {document_id}")
+
             raise HTTPException(status_code=403, detail="Token does not match document")
-        
-        print(f"DEBUG: Token validation passed, fetching document {document_id} from user {stored_user_id}")
+
         
         # Get the document using the user-specific method
         document = DocumentService.get_document_by_id(stored_user_id, document_id)
@@ -76,7 +74,6 @@ def get_shared_document(document_id: str, token: str):
             print(f"DEBUG: Document {document_id} not found for user {stored_user_id}")
             raise HTTPException(status_code=404, detail="Document not found")
         
-        print(f"DEBUG: Document found successfully: {document.get('title', 'No title')}")
         return document
     except HTTPException:
         raise
@@ -131,15 +128,11 @@ async def ingest_pdf_for_document(
     uid = request["uid"]
     
     try:
-        # Fetch the target CSR document; use its current sections for mapping
         document = DocumentService.get_document_by_id(uid, document_id)
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
         target_sections = document.get("sections", [])
-
-        # Read raw PDF bytes
         file_bytes = await file.read()
-
         result = await GeminiService.extract_section_content_from_pdf(
             file_bytes=file_bytes,
             filename=file.filename,
@@ -175,8 +168,6 @@ def apply_extraction(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Store shared links in memory (in production, use a database)
-# Format: {token: {"doc_id": str, "user_id": str}}
 shared_links = {}
 
 @router.post("/documents/{doc_id}/share")
@@ -188,8 +179,7 @@ def generate_share_link(doc_id: str, request: dict = Depends(verify_firebase_tok
     uid = request["uid"]
     token = secrets.token_urlsafe(16)
     shared_links[token] = {"doc_id": doc_id, "user_id": uid}
-    print(f"DEBUG: Generated share link for document {doc_id} with token {token} for user {uid}")
-    print(f"DEBUG: Current shared_links: {shared_links}")
+
     return {"share_link": f"http://localhost:3000/documents/{doc_id}?token={token}"}
 
 @router.get("/documents/access/{token}")

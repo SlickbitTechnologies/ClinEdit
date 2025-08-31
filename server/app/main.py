@@ -6,6 +6,7 @@ from core.config import Config
 from core.firestore import db
 from api.routes import templates
 from api.routes import documents
+from api.routes import comments
 
 
 config = Config()
@@ -20,3 +21,4 @@ app.add_middleware(
 
 app.include_router(templates.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
+app.include_router(comments.router, prefix="/api")

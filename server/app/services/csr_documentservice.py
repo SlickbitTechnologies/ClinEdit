@@ -76,8 +76,8 @@ class DocumentService:
             return None
         return doc_ref.to_dict()
 
-    @staticmethod
-    def get_public_document(document_id: str):
+    # @staticmethod
+    # def get_public_document(document_id: str):
         """
         Fetch a document by ID for public access (no user authentication required).
         This method searches across all users to find the document.

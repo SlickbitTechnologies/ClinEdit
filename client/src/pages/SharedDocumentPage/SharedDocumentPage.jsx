@@ -25,6 +25,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from "@mui/icons-material";
 import { useEditor, EditorContent } from "@tiptap/react";
+import SharedDocumentComments from "../../components/comments/comments";
 import StarterKit from "@tiptap/starter-kit";
 import Heading from "@tiptap/extension-heading";
 import TextAlign from "@tiptap/extension-text-align";
@@ -1100,7 +1101,7 @@ export default function SharedDocumentPage() {
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
-          className="editor-content-wrapper"
+          className="editor-content-wrap"
         >
           {editor ? (
             <Box className="editor-cont">
@@ -1123,6 +1124,7 @@ export default function SharedDocumentPage() {
           ) : (
             <Typography>Loading document...</Typography>
           )}
+          <SharedDocumentComments documentId={docId} token={token} />
         </Box>
 
         {/* Footer */}
