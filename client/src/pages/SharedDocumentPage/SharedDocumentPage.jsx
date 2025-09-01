@@ -1124,7 +1124,15 @@ export default function SharedDocumentPage() {
           ) : (
             <Typography>Loading document...</Typography>
           )}
-          <SharedDocumentComments documentId={docId} token={token} />
+          <SharedDocumentComments 
+            documentId={docId} 
+            token={token} 
+            currentUser={{
+              uid: `shared_${docId}`,
+              displayName: "Shared User",
+              email: "shared@example.com"
+            }}
+          />
         </Box>
 
         {/* Footer */}

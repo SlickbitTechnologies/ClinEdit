@@ -1,0 +1,227 @@
+.comments-container {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid rgba(224, 228, 231, 0.6);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  height: fit-content;
+  min-height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  transition: all 0.3s ease;
+}
+.comments-container:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-color: rgba(22, 160, 133, 0.3);
+}
+
+.comment-item {
+  transition: background-color 0.2s ease;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+}
+
+.comment-item:hover {
+  background-color: rgba(22, 160, 133, 0.05);
+}
+
+.comment-avatar {
+  background: linear-gradient(135deg, #16a085 0%, #2c3e50 100%);
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 0.875rem !important;
+}
+
+.comment-content {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.comment-actions {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.comment-item:hover .comment-actions {
+  opacity: 1;
+}
+
+.reply-section {
+  border-left: 3px solid rgba(22, 160, 133, 0.3);
+  background: rgba(22, 160, 133, 0.05);
+  border-radius: 8px;
+  margin-top: 8px;
+  padding: 8px;
+}
+
+.resolved-comment {
+  opacity: 0.6;
+  background-color: #f8f9fa;
+}
+
+.resolved-comment .comment-content {
+  text-decoration: line-through;
+  color: #6c757d;
+}
+
+.comment-timestamp {
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+.comment-user {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.875rem;
+}
+
+.comment-replies {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(22, 160, 133, 0.2);
+}
+
+.reply-item {
+  margin-bottom: 6px;
+  padding: 6px;
+  background: rgba(22, 160, 133, 0.03);
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.comment-input {
+  border: 1px solid rgba(224, 228, 231, 0.6);
+  border-radius: 8px;
+  transition: border-color 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.comment-input:focus {
+  border-color: #16a085;
+  box-shadow: 0 0 0 2px rgba(22, 160, 133, 0.2);
+}
+
+.comment-button {
+  text-transform: none;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.comment-status-chip {
+  font-size: 0.7rem;
+  height: 20px;
+}
+
+.comments-empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: #6c757d;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.comments-empty-state .MuiSvgIcon-root {
+  font-size: 40px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+  color: #16a085;
+}
+
+.comment-menu-item {
+  color: #dc3545;
+}
+
+.comment-menu-item:hover {
+  background-color: #fff5f5;
+}
+
+.comment-reply-input {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.comment-edit-mode {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.comment-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  height: 200px;
+}
+
+.comment-error {
+  margin: 12px 0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+/* Comments list container with proper scrolling */
+.comment-scroll-container {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 160, 133, 0.3) transparent;
+}
+
+/* Compact comment header */
+.comments-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(224, 228, 231, 0.6);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+/* Comments list takes remaining space */
+.comments-list-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Responsive adjustments for comments in side panel */
+@media (max-width: 1200px) {
+  .comment-item {
+    padding: 6px;
+    margin-bottom: 6px;
+  }
+  
+  .comment-content {
+    font-size: 0.8rem;
+  }
+  
+  .comment-user {
+    font-size: 0.8rem;
+  }
+  
+  .comment-timestamp {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .comments-container {
+    max-height: 400px;
+    margin-top: 16px;
+  }
+  
+  .comments-empty-state {
+    padding: 24px 12px;
+  }
+  
+  .comments-empty-state .MuiSvgIcon-root {
+    font-size: 32px;
+  }
+}

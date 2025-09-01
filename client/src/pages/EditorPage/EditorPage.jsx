@@ -48,6 +48,8 @@ import EditorToolbar from "../../components/toolbar/EditorToolbar";
 import AIDraftingPanel from "../../components/AIDrafting/AIDraftingPanel";
 import "./EditorPage.css";
 import ShareButton from "../../components/sharebutton/ShareButton";
+import SharedDocumentComments from "../../components/comments/comments";
+import { useAuth } from "../../context/AuthContext";
 
 const initialFallbackSections = [
   {
@@ -72,6 +74,7 @@ export default function EditorPage() {
   const [sections, setSections] = useState(initialFallbackSections);
   const [sectionsContent, setSectionsContent] = useState({});
   const [showAIDrafting, setShowAIDrafting] = useState(false);
+  const { user } = useAuth(); // Get current user from auth context
   
 
   const [showMetaDialog, setShowMetaDialog] = useState(false);
@@ -1555,10 +1558,12 @@ export default function EditorPage() {
           {/* Editor Toolbar */}
           <EditorToolbar editor={editor} />
 
-          {/* Editor Content */}
+          {/* Editor Content and Comments Container */}
           <Box
             sx={{
               flexGrow: 1,
+              display: "flex",
+              gap: 2,
               p: 4,
               overflowY: "auto",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
@@ -1569,12 +1574,42 @@ export default function EditorPage() {
             }}
             className="editor-content-wrapper"
           >
-            {editor ? (
-              <Box className="editor-content">
-                <EditorContent editor={editor} />
+            {/* Editor Content */}
+            <Box
+              sx={{
+                flex: "1 1 70%",
+                minWidth: 0,
+              }}
+            >
+              {editor ? (
+                <Box className="editor-content">
+                  <EditorContent editor={editor} />
+                </Box>
+              ) : (
+                <Typography>Loading editor...</Typography>
+              )}
+            </Box>
+            
+            {/* Comments Section */}
+            {user && (
+              <Box
+                sx={{
+                  flex: "0 0 30%",
+                  minWidth: "300px",
+                  maxWidth: "400px",
+                }}
+                className="comments-section"
+              >
+                <SharedDocumentComments
+                  documentId={id}
+                  token={null} // Owner uses Firebase token, not share token
+                  currentUser={{
+                    uid: user.uid,
+                    displayName: user.displayName || user.email,
+                    email: user.email,
+                  }}
+                />
               </Box>
-            ) : (
-              <Typography>Loading editor...</Typography>
             )}
           </Box>
         </Box>

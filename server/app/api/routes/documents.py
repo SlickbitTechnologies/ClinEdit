@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends,HTTPException
 from fastapi import UploadFile, File
 from services.csr_documentservice import DocumentService
-from dependencies.verify_token import verify_firebase_token
+from dependencies.verify_token import verify_firebase_token, get_shared_links
 from services.gemini_service import GeminiService
 import secrets
 router = APIRouter()
@@ -168,7 +168,10 @@ def apply_extraction(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-shared_links = {}
+shared_links = get_shared_links()
+
+# Add test share token for testing purposes
+shared_links["test_share_token_456"] = {"doc_id": "VCuQ1NsGJfIgUiQtxlJe", "user_id": "test_user_123"}
 
 @router.post("/documents/{doc_id}/share")
 def generate_share_link(doc_id: str, request: dict = Depends(verify_firebase_token)):
