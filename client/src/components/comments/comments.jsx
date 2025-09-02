@@ -143,7 +143,9 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
           userInfo = {
             type: "auth",
             user_id: currentUser?.uid || "anonymous",
-            user_name: currentUser?.displayName || currentUser?.email || "Anonymous User",
+            user_name: currentUser?.displayName || currentUser?.email?.split("@")[0] || "Anonymous User",
+            user_email: currentUser?.email,
+            user_display_name: currentUser?.displayName,
             share_token: token
           };
         } else {
@@ -157,7 +159,9 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
               userInfo = {
                 type: "auth",
                 user_id: user.uid,
-                user_name: user.displayName || user.email,
+                user_name: user.displayName || user.email?.split("@")[0] || "User",
+                user_email: user.email,
+                user_display_name: user.displayName,
                 firebase_token: firebaseToken
               };
             } else {

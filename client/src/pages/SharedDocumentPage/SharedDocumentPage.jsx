@@ -320,7 +320,9 @@ export default function SharedDocumentPage() {
         const userInfo = {
           type: "auth",
           user_id: currentUser.uid,
-          user_name: currentUser.displayName || currentUser.email,
+          user_name: currentUser.displayName || currentUser.email || "User",
+          user_email: currentUser.email,
+          user_display_name: currentUser.displayName,
           firebase_token: firebaseToken,
           share_token: token
         };
@@ -1079,6 +1081,16 @@ export default function SharedDocumentPage() {
     );
   }
 
+  // Require authentication before showing document
+  if (!currentUser) {
+    return (
+      <GuestAuth
+        onAuthSuccess={handleAuthSuccess}
+        documentTitle={document?.title || "Clinical Study Report"}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -1442,7 +1454,6 @@ export default function SharedDocumentPage() {
                 variant="outlined"
                 startIcon={<CommentIcon />}
                 onClick={() => setShowComments(!showComments)}
-                disabled={!currentUser}
                 sx={{
                   borderRadius: 2,
                   textTransform: "none",
@@ -1458,35 +1469,20 @@ export default function SharedDocumentPage() {
                 Comments ({comments.length})
               </Button>
 
-              {/* Authentication Status */}
-              {currentUser ? (
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2" color="text.secondary">
-                    Signed in as {currentUser.displayName || currentUser.email}
-                  </Typography>
-                  <Button
-                    size="small"
-                    startIcon={<LogoutIcon />}
-                    onClick={handleSignOut}
-                    sx={{ textTransform: "none" }}
-                  >
-                    Sign Out
-                  </Button>
-                </Box>
-              ) : (
+              {/* User Info and Sign Out */}
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="body2" color="text.secondary">
+                  Signed in as {currentUser.displayName || currentUser.email}
+                </Typography>
                 <Button
-                  variant="contained"
-                  startIcon={<PersonIcon />}
-                  onClick={() => setShowAuthDialog(true)}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: "none",
-                    fontWeight: 600,
-                  }}
+                  size="small"
+                  startIcon={<LogoutIcon />}
+                  onClick={handleSignOut}
+                  sx={{ textTransform: "none" }}
                 >
-                  Sign In to Comment
+                  Sign Out
                 </Button>
-              )}
+              </Box>
             </Box>
           </Toolbar>
         </AppBar>
@@ -1540,7 +1536,7 @@ export default function SharedDocumentPage() {
             ) : (
               <Typography>Loading document...</Typography>
             )}
-            {showComments && currentUser && (
+            {showComments && (
               <Box
                 sx={{
                   flex: "0 0 30%",
@@ -1551,10 +1547,12 @@ export default function SharedDocumentPage() {
                   height: "100%",
                 }}
               >
+                {/* Comments Panel */}
                 <SharedDocumentComments
                   documentId={docId}
                   token={token}
                   currentUser={currentUser}
+                  isOwner={true}
                 />
               </Box>
             )}
@@ -1594,21 +1592,12 @@ export default function SharedDocumentPage() {
           visible={showInlinePanel && !showComments}
         /> */}
 
-        {/* Guest Authentication Dialog */}
-        {showAuthDialog && (
-          <GuestAuth
-            onAuthSuccess={handleAuthSuccess}
-            documentTitle={document?.title || "Clinical Study Report"}
-          />
-        )}
+        {/* Remove the auth dialog since auth is now required upfront */}
 
         {/* Footer */}
         <Box sx={{ p: 2, borderTop: "1px solid #e0e4e7", bgcolor: "#f8fafc" }}>
           <Typography variant="body2" color="text.secondary" align="center">
-            {currentUser 
-              ? "This is a shared document view. Select text to add comments."
-              : "This is a shared document view. Sign in to add comments."
-            }
+            This is a shared document view. Select text to add comments.
           </Typography>
         </Box>
       </Box>

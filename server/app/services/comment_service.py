@@ -11,7 +11,7 @@ class CommentService:
     @staticmethod
     def create_comment(document_id: str, user_id: str, user_name: str, content: str, 
                       selection_text: Optional[str] = None, position: Optional[dict] = None, 
-                      section_id: Optional[str] = None) -> Comment:
+                      section_id: Optional[str] = None, user_email: Optional[str] = None) -> Comment:
         """Create a new comment for a document"""
         comment_id = str(uuid.uuid4())
         shared_user_id = user_id
@@ -21,6 +21,7 @@ class CommentService:
             "document_id": document_id,
             "user_id": shared_user_id,
             "user_name": user_name,
+            "user_email": user_email,
             "content": content,
             "selection_text": selection_text,
             "position": position,
@@ -97,7 +98,7 @@ class CommentService:
         return None
 
     @staticmethod
-    def add_reply_to_comment(comment_id: str, user_id: str, user_name: str, content: str) -> Optional[Comment]:
+    def add_reply_to_comment(comment_id: str, user_id: str, user_name: str, content: str, user_email: Optional[str] = None) -> Optional[Comment]:
         """Add a reply to an existing comment"""
         comment = CommentService.get_comment_by_id(comment_id)
         if not comment:
@@ -108,6 +109,7 @@ class CommentService:
             id=reply_id,
             user_id=user_id,
             user_name=user_name,
+            user_email=user_email,
             content=content,
             created_at=datetime.utcnow()
         )
