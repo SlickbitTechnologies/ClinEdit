@@ -77,7 +77,8 @@ async def document_comments_ws(websocket: WebSocket, doc_id: str):
                     if share_token in shared_links:
                         stored_info = shared_links[share_token]
                         user_id = f"shared_{stored_info['user_id']}"
-                        user_name = "Shared User"
+                        # Keep the user_name from the frontend instead of overriding it
+                        # user_name = "Shared User"
                 
                 # If this is a document owner, validate the Firebase token
                 elif firebase_token:

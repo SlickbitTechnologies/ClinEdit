@@ -14,6 +14,7 @@
     "@testing-library/jest-dom": "^6.7.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "@tiptap/extension-bubble-menu": "^3.3.0",
     "@tiptap/extension-font-family": "^3.2.1",
     "@tiptap/extension-font-size": "^3.0.0-next.3",
     "@tiptap/extension-heading": "^3.2.0",

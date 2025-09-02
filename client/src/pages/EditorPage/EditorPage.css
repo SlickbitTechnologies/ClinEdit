@@ -305,6 +305,7 @@
 
 /* TipTap Editor Content Styling */
 .editor-content {
+  display: flex;
   background: white;
   border-radius: 12px;
   border: 1px solid rgba(224, 228, 231, 0.6);
@@ -312,7 +313,7 @@
   padding: 32px;
   height: fit-content;
   min-height: calc(100vh - 200px);
-  width: 100%;
+  width: 70%;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.7;
   color: #374151;
@@ -325,17 +326,17 @@
 }
 
 /* Comments Section Styling */
-/* .comments-section {
+.comments-section {
+  width: 30%;
   background: white;
   border-radius: 12px;
-  border: 1px solid rgba(224, 228, 231, 0.6);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+
+
   height: fit-content;
-  min-height: calc(100vh - 200px);
-  max-height: calc(100vh - 200px);
+
   overflow-y: auto;
-  transition: all 0.3s ease;
-} */
+     transition: all 0.3s ease;
+}
 
 
 
@@ -520,25 +521,22 @@
 }
 
 /* Custom scrollbar for editor content */
-.editor-content-wrapper::-webkit-scrollbar,
-.comments-section::-webkit-scrollbar {
+.editor-content-wrapper::-webkit-scrollbar {
   width: 8px;
 }
 
-.editor-content-wrapper::-webkit-scrollbar-track,
-.comments-section::-webkit-scrollbar-track {
+.editor-content-wrapper::-webkit-scrollbar-track{
   background: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
 }
 
-.editor-content-wrapper::-webkit-scrollbar-thumb,
-.comments-section::-webkit-scrollbar-thumb {
+.editor-content-wrapper::-webkit-scrollbar-thumb{
   background: linear-gradient(135deg, #16a085, #2c3e50);
   border-radius: 4px;
 }
 
-.editor-content-wrapper::-webkit-scrollbar-thumb:hover,
-.comments-section::-webkit-scrollbar-thumb:hover {
+.editor-content-wrapper::-webkit-scrollbar-thumb:hover
+ {
   background: linear-gradient(135deg, #2c3e50, #16a085);
 }
 
@@ -552,10 +550,7 @@
     padding: 24px;
   }
   
-  .comments-section {
-    min-width: 280px;
-    max-width: 350px;
-  }
+
   
   .ProseMirror h1 {
     font-size: 2rem;
@@ -595,13 +590,7 @@
     font-size: 14px;
   }
   
-  .comments-section {
-    min-width: 100%;
-    max-width: 100%;
-    min-height: 400px;
-    max-height: 500px;
-  }
-  
+
   .document-header {
     flex-direction: column;
     gap: 16px;

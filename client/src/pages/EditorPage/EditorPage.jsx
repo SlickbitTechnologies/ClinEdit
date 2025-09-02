@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tooltip,
 } from "@mui/material";
 import {
   ChevronLeft as ChevronLeftIcon,
@@ -29,6 +30,7 @@ import {
   Download as DownloadIcon,
   Add as AddIcon,
   InfoOutlined as InfoOutlinedIcon,
+  Comment as CommentIcon,
 } from "@mui/icons-material";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -74,6 +76,7 @@ export default function EditorPage() {
   const [sections, setSections] = useState(initialFallbackSections);
   const [sectionsContent, setSectionsContent] = useState({});
   const [showAIDrafting, setShowAIDrafting] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const { user } = useAuth(); // Get current user from auth context
   
 
@@ -1140,34 +1143,37 @@ export default function EditorPage() {
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button
-            className="draft-trial-btn"
-            variant="outlined"
-            startIcon={<SaveIcon />}
-            onClick={saveDraft}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 600,
-            }}
-          >
-            Save
-          </Button>
-          <Button
-            className="start-trial-btn"
-            variant="contained"
-            startIcon={<DownloadIcon />}
-            onClick={exportContent}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 600,
-            }}
-          >
-            Export
-          </Button>
+          <Tooltip title="Comments">
+            <IconButton
+              onClick={() => setShowComments(!showComments)}
+              sx={{
+                // color: "success",
+                borderRadius: 2,
+                "&:hover": {
+                  borderColor: "#1565c0",
+                  bgcolor: "rgba(25, 118, 210, 0.1)",
+                },
+              }}
+              color="success"
+            >
+              <CommentIcon />
+            </IconButton>
+          </Tooltip>
+          {/* Save Icon */}
+          <Tooltip title="Save Draft">
+            <IconButton onClick={saveDraft} color="success">
+              <SaveIcon />
+            </IconButton>
+          </Tooltip>
+
+          {/* Export Icon */}
+          <Tooltip title="Export document">
+            <IconButton onClick={exportContent} color="success">
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+          <ShareButton docId={id} />
         </Box>
-        <ShareButton docId={id} />
       </Box>
 
       {/* Main Content: Sidebar + Editor */}
@@ -1515,7 +1521,7 @@ export default function EditorPage() {
               background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
             }}
           >
-            <Toolbar sx={{ justifyContent: "space-between", py: 2 }}>
+            <Toolbar sx={{ justifyContent: "space-between" }}>
               <Box>
                 <Typography
                   variant="h6"
@@ -1575,12 +1581,7 @@ export default function EditorPage() {
             className="editor-content-wrapper"
           >
             {/* Editor Content */}
-            <Box
-              sx={{
-                flex: "1 1 70%",
-                minWidth: 0,
-              }}
-            >
+      
               {editor ? (
                 <Box className="editor-content">
                   <EditorContent editor={editor} />
@@ -1588,29 +1589,21 @@ export default function EditorPage() {
               ) : (
                 <Typography>Loading editor...</Typography>
               )}
-            </Box>
-            
+              {showComments && user && (
+                <Box className="comments-section">
+                  <SharedDocumentComments
+                    documentId={id}
+                    token={null} // Owner uses Firebase token, not share token
+                    currentUser={{
+                      uid: user.uid,
+                      displayName: user.displayName || user.email,
+                      email: user.email,
+                    }}
+                  />
+                </Box>
+              )}
+
             {/* Comments Section */}
-            {user && (
-              <Box
-                sx={{
-                  flex: "0 0 30%",
-                  minWidth: "300px",
-                  maxWidth: "400px",
-                }}
-                className="comments-section"
-              >
-                <SharedDocumentComments
-                  documentId={id}
-                  token={null} // Owner uses Firebase token, not share token
-                  currentUser={{
-                    uid: user.uid,
-                    displayName: user.displayName || user.email,
-                    email: user.email,
-                  }}
-                />
-              </Box>
-            )}
           </Box>
         </Box>
       </Box>

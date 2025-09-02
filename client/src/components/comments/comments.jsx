@@ -18,6 +18,7 @@ import {
   Collapse,
   Alert,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import {
   Send as SendIcon,
@@ -25,7 +26,6 @@ import {
   MoreVert as MoreVertIcon,
   CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
-
   Comment as CommentIcon,
   Person as PersonIcon,
 } from "@mui/icons-material";
@@ -45,13 +45,26 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
   const [selectedComment, setSelectedComment] = useState(null);
   const [expandedReplies, setExpandedReplies] = useState({});
   const [showAddComment, setShowAddComment] = useState(false);
-  
+  const [selectedText, setSelectedText] = useState(null);
+
   const commentsEndRef = useRef(null);
   const newCommentRef = useRef(null);
 
   const scrollToBottom = () => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+  const handleTextSelection = () => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim() !== "") {
+      setSelectedText(selection.toString());
+    } else {
+      setSelectedText(null);
+    }
+  };
+  useEffect(() => {
+    document.addEventListener("mouseup", handleTextSelection);
+    return () => document.removeEventListener("mouseup", handleTextSelection);
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -312,41 +325,33 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
   };
 
   const sendComment = async () => {
-    if (!newComment.trim()) {
-      console.error("Comment is empty");
-      return;
-    }
+    if (!newComment.trim()) return;
     
-    if (!socket) {
-      console.error("WebSocket is not connected");
-      setError("WebSocket connection lost. Please refresh the page.");
-      return;
-    }
-
-    if (socket.readyState !== WebSocket.OPEN) {
-      console.error("WebSocket is not open. State:", socket.readyState);
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error("WebSocket is not open. State:", socket?.readyState);
       const stateNames = {
         0: "CONNECTING",
         1: "OPEN", 
         2: "CLOSING",
         3: "CLOSED"
       };
-      setError(`WebSocket is ${stateNames[socket.readyState] || 'UNKNOWN'}. Please wait or refresh the page.`);
+      setError(`WebSocket is ${stateNames[socket?.readyState] || 'UNKNOWN'}. Please wait or refresh the page.`);
       return;
     }
 
     const commentData = {
       type: "new_comment",
       content: newComment.trim(),
-      selection_text: null, // Could be enhanced to capture selected text
-      position: null, // Could be enhanced to capture cursor position
-      section_id: null, // Could be enhanced to capture current section
+      selection_text: selectedText || null,
+      position: null,
+      section_id: null,
     };
 
     try {
       console.log("Sending comment:", commentData);
       socket.send(JSON.stringify(commentData));
       setNewComment("");
+      setSelectedText(null);
       setShowAddComment(false);
     } catch (error) {
       console.error("Error sending comment:", error);
@@ -462,7 +467,14 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
 
 
   const canDeleteComment = (comment) => {
-    return currentUser && (comment.user_id === currentUser.uid || currentUser.uid === "anonymous");
+    // Allow owner to delete any comment, or user to delete their own comment
+    if (!currentUser) return false;
+    
+    // If it's the document owner (no share token), they can delete any comment
+    if (!token) return true;
+    
+    // If it's a shared user, they can only delete their own comments
+    return comment.user_id === currentUser.uid;
   };
 
   const formatDate = (dateString) => {
@@ -501,7 +513,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
   }
 
   return (
-    <Box sx={{ mt: 4 }}>
+    <Box >
       <Paper elevation={2} sx={{ p: 2 }} className="comments-container comment-scroll-container">
         <Box display="flex" alignItems="center" mb={2}>
           <CommentIcon sx={{ mr: 1, color: 'primary.main' }} />
@@ -622,6 +634,15 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                     }
                     secondary={
                       <Box>
+                        {comment.selection_text && (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ fontStyle: "italic", borderLeft: "3px solid #1976d2", pl: 1, mb: 1 }}
+                              >
+                                “{comment.selection_text}”
+                              </Typography>
+                            )}
          
                           <Typography
                             variant="body2"
@@ -633,34 +654,41 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                           </Typography>
                       
                         {/* Action Buttons */}
-                        <Box display="flex" gap={1} mt={1} className="comment-actions">
-                          <Button
-                            size="small"
-                            startIcon={<ReplyIcon />}
-                            onClick={() => toggleReplies(comment.id)}
-                          >
-                            Reply
-                          </Button>
-                          
-                 
+                        <Box display="flex" gap={0.5} mt={1} className="comment-actions">
+                          {comment.status !== 'resolved' && (
+                            <Tooltip title="Reply">
+                              <IconButton
+                                size="small"
+                                onClick={() => toggleReplies(comment.id)}
+                                sx={{ color: 'primary.main' }}
+                              >
+                                <ReplyIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           
                           {comment.status !== 'resolved' && (
-                            <Button
-                              size="small"
-                              startIcon={<CheckCircleIcon />}
-                              onClick={() => resolveComment(comment.id)}
-                            >
-                              Resolve
-                            </Button>
+                            <Tooltip title="Resolve">
+                              <IconButton
+                                size="small"
+                                onClick={() => resolveComment(comment.id)}
+                                sx={{ color: 'success.main' }}
+                              >
+                                <CheckCircleIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           )}
                           
                           {canDeleteComment(comment) && (
-                            <IconButton
-                              size="small"
-                              onClick={(e) => handleMenuOpen(e, comment)}
-                            >
-                              <MoreVertIcon />
-                            </IconButton>
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                onClick={() => deleteComment(comment.id)}
+                                sx={{ color: 'error.main' }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           )}
                         </Box>
                         

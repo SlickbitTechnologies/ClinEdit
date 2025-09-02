@@ -2,7 +2,7 @@
   background: white;
   border-radius: 12px;
   border: 1px solid rgba(224, 228, 231, 0.6);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(216, 132, 132, 0.08);
   height: fit-content;
   min-height: calc(100vh - 200px);
   max-height: calc(100vh - 200px);

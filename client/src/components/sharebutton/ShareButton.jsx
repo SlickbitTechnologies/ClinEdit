@@ -1,12 +1,13 @@
 import { useState } from "react";
-import axios from "axios";
 import { shareDocument } from "../../pages/services/services";
+import ShareIcon from "@mui/icons-material/Share";
+import { Tooltip, IconButton } from "@mui/material";
+
 export default function ShareButton({ docId }) {
   const [shareLink, setShareLink] = useState("");
 
   const handleShare = async () => {
     try {
-      
       const res = await shareDocument(docId);
       setShareLink(res.share_link);
       await navigator.clipboard.writeText(res.share_link);
@@ -17,21 +18,10 @@ export default function ShareButton({ docId }) {
   };
 
   return (
-    <div>
-      <button
-        onClick={handleShare}
-        className="px-4 py-2 bg-blue-600 text-white rounded"
-      >
-        Share Document
-      </button>
-      {shareLink && (
-        <p className="mt-2 text-sm text-gray-600">
-          Share this link:{" "}
-          <a href={shareLink} target="_blank" rel="noreferrer">
-            {shareLink}
-          </a>
-        </p>
-      )}
-    </div>
+    <Tooltip title="Share Document">
+      <IconButton onClick={handleShare} color="success">
+        <ShareIcon />
+      </IconButton>
+    </Tooltip>
   );
 }
