@@ -53,18 +53,38 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
   const scrollToBottom = () => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-  const handleTextSelection = () => {
+
+  const handleTextSelection = (event) => {
+    // Don't interfere if clicking on comment UI elements
+    if (event && event.target) {
+      const target = event.target;
+      const isCommentUI = target.closest('[data-comment-ui]') || 
+                         target.closest('.MuiPaper-root') || 
+                         target.closest('.MuiTextField-root') ||
+                         target.closest('.MuiButton-root') ||
+                         target.closest('.comments-container');
+      
+      // If clicking on comment UI and we have existing selection, preserve it
+      if (isCommentUI && selectedText) {
+        return;
+      }
+    }
+
     const selection = window.getSelection();
     if (selection && selection.toString().trim() !== "") {
       setSelectedText(selection.toString());
     } else {
-      setSelectedText(null);
+      // Only clear if not interacting with comment UI
+      if (!event || !event.target || !event.target.closest('.comments-container')) {
+        setSelectedText(null);
+      }
     }
   };
+
   useEffect(() => {
     document.addEventListener("mouseup", handleTextSelection);
     return () => document.removeEventListener("mouseup", handleTextSelection);
-  }, []);
+  }, [selectedText]);
 
   useEffect(() => {
     scrollToBottom();
@@ -536,6 +556,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
               startIcon={<CommentIcon />}
               onClick={() => setShowAddComment(true)}
               fullWidth
+              data-comment-ui="true"
             >
               Add a comment
             </Button>
@@ -552,6 +573,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                 sx={{ mb: 1 }}
                 ref={newCommentRef}
                 autoFocus
+                data-comment-ui="true"
               />
               <Box display="flex" gap={1} justifyContent="flex-end">
                 <Button
@@ -560,6 +582,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                     setShowAddComment(false);
                     setNewComment("");
                   }}
+                  data-comment-ui="true"
                 >
                   Cancel
                 </Button>
@@ -568,6 +591,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                   startIcon={<SendIcon />}
                   onClick={sendComment}
                   disabled={!newComment.trim()}
+                  data-comment-ui="true"
                 >
                   Comment
                 </Button>
@@ -661,6 +685,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                                 size="small"
                                 onClick={() => toggleReplies(comment.id)}
                                 sx={{ color: 'primary.main' }}
+                                data-comment-ui="true"
                               >
                                 <ReplyIcon fontSize="small" />
                               </IconButton>
@@ -673,6 +698,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                                 size="small"
                                 onClick={() => resolveComment(comment.id)}
                                 sx={{ color: 'success.main' }}
+                                data-comment-ui="true"
                               >
                                 <CheckCircleIcon fontSize="small" />
                               </IconButton>
@@ -685,6 +711,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                                 size="small"
                                 onClick={() => deleteComment(comment.id)}
                                 sx={{ color: 'error.main' }}
+                                data-comment-ui="true"
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
@@ -707,11 +734,13 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                                 [comment.id]: e.target.value
                               }))}
                               sx={{ mb: 1 }}
+                              data-comment-ui="true"
                             />
                             <Box display="flex" gap={1} justifyContent="flex-end">
                               <Button
                                 size="small"
                                 onClick={() => toggleReplies(comment.id)}
+                                data-comment-ui="true"
                               >
                                 Cancel
                               </Button>
@@ -721,6 +750,7 @@ export default function SharedDocumentComments({ documentId, token, currentUser 
                                 startIcon={<SendIcon />}
                                 onClick={() => sendReply(comment.id)}
                                 disabled={!newReply[comment.id]?.trim()}
+                                data-comment-ui="true"
                               >
                                 Reply
                               </Button>

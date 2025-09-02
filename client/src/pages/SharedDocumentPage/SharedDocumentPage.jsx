@@ -27,12 +27,11 @@ import {
   ExpandMore as ExpandMoreIcon,
   Comment as CommentIcon,
   Person as PersonIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 import { useEditor, EditorContent } from "@tiptap/react";
 import SharedDocumentComments from "../../components/comments/comments";
-import FloatingCommentButton from "../../components/comments/FloatingCommentButton";
-import InlineCommentPanel from "../../components/comments/InlineCommentPanel";
-import UserNameDialog from "../../components/comments/UserNameDialog";
+import GuestAuth from "../../components/auth/GuestAuth";
 import StarterKit from "@tiptap/starter-kit";
 import Heading from "@tiptap/extension-heading";
 import TextAlign from "@tiptap/extension-text-align";
@@ -43,6 +42,8 @@ import { FontFamily } from "@tiptap/extension-font-family";
 import { FontSize } from "@tiptap/extension-font-size";
 import Underline from "@tiptap/extension-underline";
 import Strike from "@tiptap/extension-strike";
+import { onAuthStateChanged,signOut,getAuth } from "firebase/auth";
+import { auth } from "../../firebase";
 import "./SharedDocumentPage.css";
 
 export default function SharedDocumentPage() {
@@ -58,6 +59,10 @@ export default function SharedDocumentPage() {
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [openPanels, setOpenPanels] = useState({});
   const [collapsed, setCollapsed] = useState(false);
+  // Authentication state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
   
   // Comment-related state
   const [showComments, setShowComments] = useState(false);
@@ -67,9 +72,8 @@ export default function SharedDocumentPage() {
   const [showInlinePanel, setShowInlinePanel] = useState(false);
   const [comments, setComments] = useState([]);
   const [socket, setSocket] = useState(null);
-  const [userName, setUserName] = useState(localStorage.getItem('sharedUserName') || '');
-  const [showNameDialog, setShowNameDialog] = useState(false);
   const editorRef = useRef(null);
+  const storedSelectionRef = useRef(null);
 
   const togglePanel = (i) => {
     setOpenPanels((prev) => ({ ...prev, [i]: !prev[i] }));
@@ -242,30 +246,59 @@ export default function SharedDocumentPage() {
     };
   };
 
-  // Text selection handling
-  const handleTextSelection = () => {
+  // Text selection handling - capture selection immediately when made
+  const handleSelectionChange = () => {
     const selection = window.getSelection();
+    
     if (selection && selection.toString().trim() !== "") {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       
-      setSelectedText(selection.toString().trim());
-      setSelectionPosition({
-        top: rect.bottom + window.scrollY + 5,
-        left: rect.left + window.scrollX,
-        right: 20, // Distance from right edge for inline panel
-      });
+      const selectionData = {
+        text: selection.toString().trim(),
+        position: {
+          top: rect.bottom + window.scrollY + 5,
+          left: rect.left + window.scrollX,
+          right: 20,
+        }
+      };
+      
+      // Store immediately when selection is made
+      setSelectedText(selectionData.text);
+      setSelectionPosition(selectionData.position);
+      storedSelectionRef.current = selectionData;
       setShowFloatingButton(true);
-    } else {
+    }
+  };
+
+  // Only clear selection when explicitly clicking outside comment areas
+  const handleDocumentClick = (event) => {
+    const isCommentArea = event.target.closest('[data-comment-ui]') || 
+                         event.target.closest('.comments-container') ||
+                         event.target.closest('.MuiPaper-root');
+    
+    // Don't clear if clicking on comment UI or if comment panels are open
+    if (!isCommentArea && !showInlinePanel && !showFloatingButton) {
       setSelectedText("");
       setSelectionPosition(null);
+      storedSelectionRef.current = null;
       setShowFloatingButton(false);
     }
   };
 
-  // WebSocket setup for comments
+  // Firebase Auth listener
   useEffect(() => {
-    if (!docId) return;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // WebSocket setup for comments - only if user is authenticated
+  useEffect(() => {
+    if (!docId || !currentUser) return;
 
     const fullWsUrl = `ws://127.0.0.1:8000/api/documents/${docId}/comments`;
     let ws;
@@ -281,10 +314,14 @@ export default function SharedDocumentPage() {
       ws.onopen = async () => {
         console.log("WebSocket connected for comments");
         
+        // Get Firebase token for authenticated user
+        const firebaseToken = await currentUser.getIdToken();
+        
         const userInfo = {
           type: "auth",
-          user_id: `shared_${docId}`,
-          user_name: userName || "Anonymous User",
+          user_id: currentUser.uid,
+          user_name: currentUser.displayName || currentUser.email,
+          firebase_token: firebaseToken,
           share_token: token
         };
         
@@ -322,7 +359,7 @@ export default function SharedDocumentPage() {
         ws.close(1000, "Component unmounting");
       }
     };
-  }, [docId, token]);
+  }, [docId, token, currentUser]);
 
   const handleWebSocketMessage = (data) => {
     switch (data.type) {
@@ -366,21 +403,73 @@ export default function SharedDocumentPage() {
    }
    return [];
  };
+
   const handleAddComment = () => {
-    if (!userName) {
-      setShowNameDialog(true);
+    if (!currentUser) {
+      setShowAuthDialog(true);
       return;
     }
+    
+    // Ensure we preserve the stored selection when opening comment panel
+    if (storedSelectionRef.current) {
+      setSelectedText(storedSelectionRef.current.text);
+      setSelectionPosition(storedSelectionRef.current.position);
+    }
+    
     setShowInlinePanel(true);
     setShowFloatingButton(false);
   };
 
-  const handleUserNameSave = (name) => {
-    setUserName(name);
-    localStorage.setItem('sharedUserName', name);
-    setShowInlinePanel(true);
-    setShowFloatingButton(false);
+  const handleAuthSuccess = (user) => {
+    setCurrentUser(user);
+    setShowAuthDialog(false);
+    
+    // If user was trying to comment, restore their selection
+    if (storedSelectionRef.current) {
+      setSelectedText(storedSelectionRef.current.text);
+      setSelectionPosition(storedSelectionRef.current.position);
+      setShowInlinePanel(true);
+    }
   };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser(null);
+      setShowComments(false);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const handleSendComment = (content, selectionText) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    // Use stored selection data if available
+    const finalSelectionText = selectionText || selectedText || storedSelectionRef.current?.text;
+    const finalPosition = selectionPosition || storedSelectionRef.current?.position;
+
+    const commentData = {
+      type: "new_comment",
+      content: content,
+      selection_text: finalSelectionText,
+      position: finalPosition,
+    };
+
+    try {
+      socket.send(JSON.stringify(commentData));
+      // Clear everything after sending
+      setSelectedText("");
+      setSelectionPosition(null);
+      storedSelectionRef.current = null;
+      setShowFloatingButton(false);
+      setShowInlinePanel(false);
+    } catch (error) {
+      console.error("Error sending comment:", error);
+    }
+  };
+
+  // Remove the old handleUserNameSave function as we now use Firebase Auth
 
 
   const handleSendReply = (commentId, content) => {
@@ -414,16 +503,16 @@ export default function SharedDocumentPage() {
     }
   };
 
-  // Add event listener for text selection
+  // Add event listeners for text selection with browser-safe handling
   useEffect(() => {
     if (typeof document !== 'undefined' && document) {
-      document.addEventListener("mouseup", handleTextSelection);
-      document.addEventListener("keyup", handleTextSelection);
+      document.addEventListener("selectionchange", handleSelectionChange);
+      document.addEventListener("click", handleDocumentClick);
       
       return () => {
         if (typeof document !== 'undefined' && document) {
-          document.removeEventListener("mouseup", handleTextSelection);
-          document.removeEventListener("keyup", handleTextSelection);
+          document.removeEventListener("selectionchange", handleSelectionChange);
+          document.removeEventListener("click", handleDocumentClick);
         }
       };
     }
@@ -974,14 +1063,30 @@ export default function SharedDocumentPage() {
     }
   }, [sections, sectionsContent, editor]);
 
-  if (loading) {
+  // Show auth loading state
+  if (authLoading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         <Box
           display="flex"
           justifyContent="center"
           alignItems="center"
-          minHeight="400px"
+          minHeight="50vh"
+        >
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="50vh"
         >
           <CircularProgress />
         </Box>
@@ -1337,6 +1442,7 @@ export default function SharedDocumentPage() {
                 variant="outlined"
                 startIcon={<CommentIcon />}
                 onClick={() => setShowComments(!showComments)}
+                disabled={!currentUser}
                 sx={{
                   borderRadius: 2,
                   textTransform: "none",
@@ -1351,6 +1457,36 @@ export default function SharedDocumentPage() {
               >
                 Comments ({comments.length})
               </Button>
+
+              {/* Authentication Status */}
+              {currentUser ? (
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    Signed in as {currentUser.displayName || currentUser.email}
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<LogoutIcon />}
+                    onClick={handleSignOut}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Sign Out
+                  </Button>
+                </Box>
+              ) : (
+                <Button
+                  variant="contained"
+                  startIcon={<PersonIcon />}
+                  onClick={() => setShowAuthDialog(true)}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
+                  }}
+                >
+                  Sign In to Comment
+                </Button>
+              )}
             </Box>
           </Toolbar>
         </AppBar>
@@ -1404,28 +1540,21 @@ export default function SharedDocumentPage() {
             ) : (
               <Typography>Loading document...</Typography>
             )}
-            {showComments && (
+            {showComments && currentUser && (
               <Box
-      
+                sx={{
+                  flex: "0 0 30%",
+                  borderLeft: "1px solid #e0e4e7",
+                  bgcolor: "#fafafa",
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                }}
               >
-                <Box sx={{ p: 2, borderBottom: "1px solid #e0e4e7" }}>
-                  <Button
-                    size="small"
-                    startIcon={<PersonIcon />}
-                    onClick={() => setShowNameDialog(true)}
-                    sx={{ mb: 1 }}
-                  >
-                    Change Name: {userName || "Anonymous"}
-                  </Button>
-                </Box>
                 <SharedDocumentComments
                   documentId={docId}
                   token={token}
-                  currentUser={{
-                    uid: `shared_${docId}`,
-                    displayName: userName || "Anonymous User",
-                    email: "shared@example.com",
-                  }}
+                  currentUser={currentUser}
                 />
               </Box>
             )}
@@ -1435,23 +1564,24 @@ export default function SharedDocumentPage() {
         </Box>
 
         {/* Floating Comment Button */}
-        <FloatingCommentButton
+        {/* <FloatingCommentButton
           position={selectionPosition}
           visible={showFloatingButton && !showComments}
           onAddComment={handleAddComment}
           selectedText={selectedText}
-        />
+        /> */}
 
         {/* Inline Comment Panel */}
-        <InlineCommentPanel
+        {/* <InlineCommentPanel
           comments={comments}
-          onSendComment={null}
+          onSendComment={handleSendComment}
           onSendReply={handleSendReply}
           onResolveComment={handleResolveComment}
           onClose={() => {
             setShowInlinePanel(false);
             setSelectedText("");
             setSelectionPosition(null);
+            storedSelectionRef.current = null;
             setShowFloatingButton(false);
           }}
           selectedText={selectedText}
@@ -1462,20 +1592,23 @@ export default function SharedDocumentPage() {
           }}
           position={selectionPosition}
           visible={showInlinePanel && !showComments}
-        />
+        /> */}
 
-        {/* User Name Dialog */}
-        <UserNameDialog
-          open={showNameDialog}
-          onClose={() => setShowNameDialog(false)}
-          onSave={handleUserNameSave}
-          initialName={userName}
-        />
+        {/* Guest Authentication Dialog */}
+        {showAuthDialog && (
+          <GuestAuth
+            onAuthSuccess={handleAuthSuccess}
+            documentTitle={document?.title || "Clinical Study Report"}
+          />
+        )}
 
         {/* Footer */}
         <Box sx={{ p: 2, borderTop: "1px solid #e0e4e7", bgcolor: "#f8fafc" }}>
           <Typography variant="body2" color="text.secondary" align="center">
-            This is a shared document view. Select text to add comments.
+            {currentUser 
+              ? "This is a shared document view. Select text to add comments."
+              : "This is a shared document view. Sign in to add comments."
+            }
           </Typography>
         </Box>
       </Box>
