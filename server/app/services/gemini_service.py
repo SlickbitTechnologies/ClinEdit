@@ -113,7 +113,7 @@ class GeminiService:
                 temperature=0.2,
             ),
         )
-
+        
         return response.parsed
 
 
@@ -181,5 +181,5 @@ class GeminiService:
                 status_code=500,
                 detail=f"Invalid AI extraction response. Raw: {getattr(response, 'text', str(response))}",
             )
-
+        print("Parsed extraction response:", parsed)
         return parsed.model_dump()
