@@ -53,55 +53,59 @@ class GeminiService:
         file_part = Part.from_bytes(data=file_bytes, mime_type=mime or "application/pdf")
 
         system_prompt = """
-                    You are an expert in Clinical Study Reports (CSR) following ICH E3 guidelines.
+                You are an expert in Clinical Study Reports (CSR) following ICH E3 guidelines.
 
-                    Task:
-                    1. Extract **meta-data keys** from the **Title Page** (e.g., Study ID, Protocol Number, Sponsor, Study Title, Date, Study Phase).
-                    2. Identify **major section headers and subsections** from the CSR template PDF.
-                    3. Respond strictly in **valid JSON** following this schema:
+                Task:
+                1. Extract **meta-data keys** from the **Title Page** (e.g., Study ID, Protocol Number, Sponsor, Study Title, Date, Study Phase).
+                2. Identify **major section headers and their subsections** from the CSR template PDF.
+                3. All subsections MUST be nested inside their parent section.
+                - Example: "12 SAFETY EVALUATION" should contain subsections "12.1", "12.2", ... inside its "subsections" array.
+                - Do NOT output "12.1", "12.2", etc. as separate top-level sections.
+                4. Respond strictly in **valid JSON** following this schema:
 
+                {
+                "meta_keys": [
+                    "Study ID",
+                    "Protocol Number",
+                    "Sponsor",
+                    "Study Title",
+                    "Date",
+                    "Study Phase"
+                ],
+                "sections": [
                     {
-                    "meta_keys": [
-                        "Study ID",
-                        "Protocol Number",
-                        "Sponsor",
-                        "Study Title",
-                        "Date",
-                        "Study Phase"
-                    ],
-                    "sections": [
-                        {
-                        "id": "1",
-                        "title": "Synopsis",
-                        "subsections": [
-                            {"id": "1.1", "title": "Study Objectives"},
-                            {"id": "1.2", "title": "Efficacy Results"},
-                            {"id": "1.3", "title": "Safety Results"}
-                        ]
-                        },
-                        {
-                        "id": "2",
-                        "title": "Introduction",
-                        "subsections": []
-                        },
-                        {
-                        "id": "3",
-                        "title": "Methodology",
-                        "subsections": [
-                            {"id": "3.1", "title": "Study Design"},
-                            {"id": "3.2", "title": "Patient Population"},
-                            {"id": "3.3", "title": "Statistical Methods"}
-                        ]
-                        }
+                    "id": "1",
+                    "title": "Synopsis",
+                    "subsections": [
+                        {"id": "1.1", "title": "Study Objectives"},
+                        {"id": "1.2", "title": "Efficacy Results"},
+                        {"id": "1.3", "title": "Safety Results"}
+                    ]
+                    },
+                    {
+                    "id": "2",
+                    "title": "Introduction",
+                    "subsections": []
+                    },
+                    {
+                    "id": "3",
+                    "title": "Methodology",
+                    "subsections": [
+                        {"id": "3.1", "title": "Study Design"},
+                        {"id": "3.2", "title": "Patient Population"},
+                        {"id": "3.3", "title": "Statistical Methods"}
                     ]
                     }
+                ]
+                }
 
-                    Rules:
-                    - Only include **recognized CSR meta-data keys** (usually from the Title Page).
-                    - Use **clear hierarchy**: sections → subsections.
-                    - If a section has no subsections, set "subsections": [].
-                    - Do not invent content; only extract what exists in the provided PDF.
-                    """
+                Rules:
+                - Only include **recognized CSR meta-data keys** (usually from the Title Page).
+                - Use **clear hierarchy**: sections → subsections.
+                - If a section has no subsections, set "subsections": [].
+                - Never output subsections as separate top-level sections.
+                - Do not invent content; only extract what exists in the provided PDF.
+                """
 
 
         response = await client.aio.models.generate_content(
@@ -113,7 +117,7 @@ class GeminiService:
                 temperature=0.2,
             ),
         )
-        
+        print("Raw extraction response:", response.parsed)
         return response.parsed
 
 

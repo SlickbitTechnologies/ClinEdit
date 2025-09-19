@@ -18,6 +18,7 @@ class TemplateService:
             "uploaded_by": uid,
             "created_at": datetime.utcnow().isoformat()
         }
+        print("Saving template:", template)
 
         doc_ref.set(template)
         return template
