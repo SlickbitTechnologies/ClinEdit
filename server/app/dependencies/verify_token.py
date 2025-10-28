@@ -1,14 +1,10 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth
-import secrets
-import logging
 from typing import Optional, Dict, Any
-
+from loguru import logger
 security = HTTPBearer()
-logger = logging.getLogger(__name__)
 
-# In-memory storage for shared links (in production, use a database)
 shared_links = {}
 
 def verify_firebase_token(

@@ -3,9 +3,11 @@ from fastapi import UploadFile, File
 from services.csr_documentservice import DocumentService
 from dependencies.verify_token import verify_firebase_token, get_shared_links
 from services.gemini_service import GeminiService
+from core.config import Config
 import secrets
 router = APIRouter()
-
+config=Config()
+from loguru import logger
 @router.post("/create-document")
 async def create_document(
     request: dict = Depends(verify_firebase_token),
@@ -54,7 +56,7 @@ def get_shared_document(document_id: str, token: str):
         
         # Validate the token
         if token not in shared_links:
-            print(f"DEBUG: Token {token} not found in shared_links")
+            logger.debug(f"DEBUG: Token {token} not found in shared_links")
             raise HTTPException(status_code=403, detail="Invalid or expired share token")
         
         # Get the stored document and user info
@@ -71,24 +73,20 @@ def get_shared_document(document_id: str, token: str):
         # Get the document using the user-specific method
         document = DocumentService.get_document_by_id(stored_user_id, document_id)
         if not document:
-            print(f"DEBUG: Document {document_id} not found for user {stored_user_id}")
+            logger.debug(f"DEBUG: Document {document_id} not found for user {stored_user_id}")
             raise HTTPException(status_code=404, detail="Document not found")
         
         return document
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in get_shared_document: {e}")
+        logger.error(f"Error in get_shared_document: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")    
 
 @router.delete("/documents/{document_id}")
 async def delete_document(document_id: str, request=Depends(verify_firebase_token)):
-    """
-    API endpoint to delete a document by ID.
-    
-    """
-    uid = request["uid"]
 
+    uid = request["uid"]
     success = DocumentService.delete_document(uid, document_id)
 
     if not success:
@@ -183,7 +181,7 @@ def generate_share_link(doc_id: str, request: dict = Depends(verify_firebase_tok
     token = secrets.token_urlsafe(16)
     shared_links[token] = {"doc_id": doc_id, "user_id": uid}
 
-    return {"share_link": f"http://localhost:3000/documents/{doc_id}?token={token}"}
+    return {"share_link": f"{config.FRONTEND_URL}documents/{doc_id}?token={token}"}
 
 @router.get("/documents/access/{token}")
 def resolve_share_link(token: str):

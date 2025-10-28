@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  metadata-extractor-api:
+    image: csr-editor:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: csr-editor-api
+    ports:
+      - "8000:8000"
+    environment:
+      - FIREBASE_CREDENTIAL_PATH=${FIREBASE_CREDENTIAL_PATH}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - AUTH_URI=${AUTH_URI}
+      - TOKEN_URI=${TOKEN_URI}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - UI_PATH=/app/client/
+    volumes:
+      - ./client:/app/client

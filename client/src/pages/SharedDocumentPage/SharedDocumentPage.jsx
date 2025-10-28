@@ -4,11 +4,9 @@ import axios from "axios";
 import {
   Box,
   Typography,
-  Paper,
   CircularProgress,
   Alert,
   Container,
-  Divider,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -16,17 +14,13 @@ import {
   ListItem,
   ListItemText,
   Toolbar,
-  IconButton,
   AppBar,
   Button,
-  TextField,
 } from "@mui/material";
 import {
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
+
   ExpandMore as ExpandMoreIcon,
   Comment as CommentIcon,
-  Person as PersonIcon,
   Logout as LogoutIcon,
 } from "@mui/icons-material";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -44,7 +38,9 @@ import Underline from "@tiptap/extension-underline";
 import Strike from "@tiptap/extension-strike";
 import { onAuthStateChanged,signOut,getAuth } from "firebase/auth";
 import { auth } from "../../firebase";
+import { validateToken,fetchSharedDocumentData } from "../services/services";
 import "./SharedDocumentPage.css";
+
 
 export default function SharedDocumentPage() {
   const { docId } = useParams();
@@ -300,7 +296,7 @@ export default function SharedDocumentPage() {
   useEffect(() => {
     if (!docId || !currentUser) return;
 
-    const fullWsUrl = `ws://127.0.0.1:8000/api/documents/${docId}/comments`;
+    const fullWsUrl = `ws://${process.env.REACT_APP_WEBSOCKET_BASE_URL}/api/documents/${docId}/comments`;
     let ws;
     
     const connectWebSocket = () => {
@@ -406,22 +402,7 @@ export default function SharedDocumentPage() {
    return [];
  };
 
-  const handleAddComment = () => {
-    if (!currentUser) {
-      setShowAuthDialog(true);
-      return;
-    }
-    
-    // Ensure we preserve the stored selection when opening comment panel
-    if (storedSelectionRef.current) {
-      setSelectedText(storedSelectionRef.current.text);
-      setSelectionPosition(storedSelectionRef.current.position);
-    }
-    
-    setShowInlinePanel(true);
-    setShowFloatingButton(false);
-  };
-
+ 
   const handleAuthSuccess = (user) => {
     setCurrentUser(user);
     setShowAuthDialog(false);
@@ -444,66 +425,10 @@ export default function SharedDocumentPage() {
     }
   };
 
-  const handleSendComment = (content, selectionText) => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
-    // Use stored selection data if available
-    const finalSelectionText = selectionText || selectedText || storedSelectionRef.current?.text;
-    const finalPosition = selectionPosition || storedSelectionRef.current?.position;
-
-    const commentData = {
-      type: "new_comment",
-      content: content,
-      selection_text: finalSelectionText,
-      position: finalPosition,
-    };
-
-    try {
-      socket.send(JSON.stringify(commentData));
-      // Clear everything after sending
-      setSelectedText("");
-      setSelectionPosition(null);
-      storedSelectionRef.current = null;
-      setShowFloatingButton(false);
-      setShowInlinePanel(false);
-    } catch (error) {
-      console.error("Error sending comment:", error);
-    }
-  };
-
-  // Remove the old handleUserNameSave function as we now use Firebase Auth
+ 
 
 
-  const handleSendReply = (commentId, content) => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
-    const replyData = {
-      type: "new_reply",
-      comment_id: commentId,
-      content: content,
-    };
-
-    try {
-      socket.send(JSON.stringify(replyData));
-    } catch (error) {
-      console.error("Error sending reply:", error);
-    }
-  };
-
-  const handleResolveComment = (commentId) => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
-    const resolveData = {
-      type: "resolve_comment",
-      comment_id: commentId,
-    };
-
-    try {
-      socket.send(JSON.stringify(resolveData));
-    } catch (error) {
-      console.error("Error resolving comment:", error);
-    }
-  };
 
   // Add event listeners for text selection with browser-safe handling
   useEffect(() => {
@@ -546,23 +471,31 @@ export default function SharedDocumentPage() {
           return;
         }
 
-        // First validate the token with the backend
-        const tokenResponse = await axios.get(
-          `http://localhost:8000/api/documents/access/${token}`
-        );
+        // Validate token with backend
+        const tokenResponse = await validateToken(token);
 
-        if (tokenResponse.data.error) {
+        // Check for structure safely
+        if (!tokenResponse) {
           setError("Invalid or expired share link");
           setLoading(false);
           return;
         }
 
-        // If token is valid, fetch the document content using the shared endpoint
-        const docResponse = await axios.get(
-          `http://localhost:8000/api/documents/${docId}/shared?token=${token}`
-        );
+        if (tokenResponse.error) {
+          setError("Invalid or expired share link");
+          setLoading(false);
+          return;
+        }
 
-        const docData = docResponse.data;
+        if (tokenResponse.data && tokenResponse.data.error) {
+          setError("Invalid or expired share link");
+          setLoading(false);
+          return;
+        }
+
+        // If token is valid, fetch the document content
+        const docData = await fetchSharedDocumentData(docId, token);
+
         console.log("Received document data from backend:", docData);
         console.log("Document sections:", docData.sections);
         console.log("Document sectionsContent:", docData.sectionsContent);
@@ -1558,41 +1491,7 @@ export default function SharedDocumentPage() {
             )}
           </Box>
 
-          {/* Comments Side Panel */}
         </Box>
-
-        {/* Floating Comment Button */}
-        {/* <FloatingCommentButton
-          position={selectionPosition}
-          visible={showFloatingButton && !showComments}
-          onAddComment={handleAddComment}
-          selectedText={selectedText}
-        /> */}
-
-        {/* Inline Comment Panel */}
-        {/* <InlineCommentPanel
-          comments={comments}
-          onSendComment={handleSendComment}
-          onSendReply={handleSendReply}
-          onResolveComment={handleResolveComment}
-          onClose={() => {
-            setShowInlinePanel(false);
-            setSelectedText("");
-            setSelectionPosition(null);
-            storedSelectionRef.current = null;
-            setShowFloatingButton(false);
-          }}
-          selectedText={selectedText}
-          currentUser={{
-            uid: `shared_${docId}`,
-            displayName: userName || "Anonymous User",
-            email: "shared@example.com",
-          }}
-          position={selectionPosition}
-          visible={showInlinePanel && !showComments}
-        /> */}
-
-        {/* Remove the auth dialog since auth is now required upfront */}
 
         {/* Footer */}
         <Box sx={{ p: 2, borderTop: "1px solid #e0e4e7", bgcolor: "#f8fafc" }}>

@@ -8,6 +8,7 @@
 *.tmp
 *.swp
 *.swo
+serviceAccountKey.json
 
 # OS-specific
 .DS_Store
@@ -16,3 +17,5 @@ Thumbs.db
 # Environment files
 .env
 .env.*
+..venv
+**/*.env

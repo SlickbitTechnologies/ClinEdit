@@ -16,6 +16,11 @@ db.sqlite3
 # Environment variables
 .env
 *.env
+.venv
+venv
+*.venv
+*venv
+
 
 # Firebase credentials
 firebase-credentials.json
@@ -29,3 +34,4 @@ serviceAccountKey.json
 Thumbs.db
 
 Dockerfile
+

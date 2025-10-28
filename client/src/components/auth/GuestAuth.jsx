@@ -16,8 +16,7 @@ import {
   Lock as LockIcon,
 } from '@mui/icons-material';
 import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
+
   signInWithPopup,
   GoogleAuthProvider,
   updateProfile
@@ -26,41 +25,10 @@ import { auth } from '../../firebase';
 
 export default function GuestAuth({ onAuthSuccess, documentTitle }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleEmailAuth = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
 
-    try {
-      let userCredential;
-      
-      if (isLogin) {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        
-        // Update display name for new users
-        if (displayName.trim()) {
-          await updateProfile(userCredential.user, {
-            displayName: displayName.trim()
-          });
-        }
-      }
-
-      onAuthSuccess(userCredential.user);
-    } catch (error) {
-      console.error('Auth error:', error);
-      setError(getErrorMessage(error.code));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGoogleAuth = async () => {
     setLoading(true);

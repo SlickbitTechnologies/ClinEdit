@@ -9,10 +9,7 @@ export const uploadCSRTemplate = async (file) => {
 
   if (!user) throw new Error("User not authenticated");
 
-  // Get Firebase ID token for authorization
   const idToken = await user.getIdToken();
-
-  // Prepare FormData for file upload
   const formData = new FormData();
   formData.append("file", file, file.name);
 
@@ -220,7 +217,7 @@ export const shareDocument = async (docId) => {
 
   try {
     const response = await axios.post(
-      `http://localhost:8000/api/documents/${docId}/share`,
+      `${API_BASE}/api/documents/${docId}/share`,
       {},
       {
         headers: { Authorization: `Bearer ${idToken}` },
@@ -231,4 +228,20 @@ export const shareDocument = async (docId) => {
     console.error("Error sharing document:", error);
     throw error;
   }
+};
+
+
+export const validateToken = async (token) => {
+  const response = await axios.get(`${API_BASE}/api/documents/access/${token}`);
+  return response.data;
+};
+
+
+export const fetchSharedDocumentData = async (docId, token) => {
+  console.log(docId,token)
+  const response = await axios.get(
+    `${API_BASE}/api/documents/${docId}/shared?token=${token}`
+  );
+  console.log(response.data)
+  return response.data;
 };

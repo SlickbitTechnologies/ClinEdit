@@ -12,8 +12,7 @@ class Config(BaseSettings):
     AUTH_URI: HttpUrl = Field(..., description="OAuth auth endpoint")
     TOKEN_URI: HttpUrl = Field(..., description="OAuth token endpoint")
     ALLOWED_ORIGINS: List[HttpUrl] = Field(..., description="Comma-separated list of allowed CORS origins")
-    FRONTEND_URL: List[HttpUrl] = Field(..., description="Comma-separated frontend URLs")
-    BACKEND_BASE_URL: HttpUrl = Field(..., description="Base URL of backend API")
+    FRONTEND_URL: HttpUrl = Field(..., description="Frontend URL, e.g. http://localhost:3000")
 
     class Config:
         env_file = ".env"

@@ -1,10 +1,10 @@
-const API_BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_BASE_URL 
 
 export const commentService = {
   // Get all comments for a document
   async getComments(documentId, token) {
     try {
-      const response = await fetch(`${API_BASE_URL}/documents/${documentId}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/comments`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
